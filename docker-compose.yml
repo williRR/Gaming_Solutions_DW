@@ -1,0 +1,12 @@
+services:
+  gaming-solutions-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gaming-solutions-landing:latest
+    container_name: gaming-solutions-web
+    ports:
+      # Host:Contenedor -> http://localhost:3000 sirve el contenido
+      # que Nginx expone internamente en el puerto 80
+      - "3000:80"
+    restart: unless-stopped

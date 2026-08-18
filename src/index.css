@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0f172a;
+  font-family: 'Chakra Petch', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: 'Rajdhani', sans-serif;
+}
+
+/* Signature element: "cartridge bevel" — esquinas cortadas estilo carcasa de consola/cartucho,
+   usado en tarjetas de categoría y CTAs para dar identidad de hardware gaming. */
+.bevel-card {
+  clip-path: polygon(
+    0 18px, 18px 0,
+    calc(100% - 18px) 0, 100% 18px,
+    100% calc(100% - 18px), calc(100% - 18px) 100%,
+    18px 100%, 0 calc(100% - 18px)
+  );
+}
+
+.bevel-btn {
+  clip-path: polygon(
+    0 10px, 10px 0,
+    calc(100% - 10px) 0, 100% 10px,
+    100% calc(100% - 10px), calc(100% - 10px) 100%,
+    10px 100%, 0 calc(100% - 10px)
+  );
+}
+
+::selection {
+  background: #22d3ee;
+  color: #0f172a;
+}
+
+/* Scrollbar estilo consola */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #243252;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #22d3ee;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
