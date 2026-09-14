@@ -1,104 +1,47 @@
-# Gaming Solutions — Landing Page (Fase 1)
+# Gaming Solutions
 
-Landing page de presentación para **Gaming Solutions**, construida con
-**React + Vite + Tailwind CSS**, empaquetada para producción con
-**Docker + Nginx**.
+Panel administrativo para compras, ventas e inventario de consolas. Incluye Oracle Database, Node.js/Express y una interfaz web de back-office.
 
-## Estructura del proyecto
+## 1. Base de datos
 
-```
-gaming-solutions/
-├── src/
-│   ├── components/
-│   │   ├── Navigation.jsx
-│   │   ├── HeroSection.jsx
-│   │   ├── CategoriesSection.jsx
-│   │   ├── TrustSection.jsx
-│   │   └── Footer.jsx
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
-├── index.html
-├── tailwind.config.js
-├── postcss.config.js
-├── vite.config.js
-├── package.json
-├── Dockerfile
-├── docker-compose.yml
-├── nginx.conf
-└── .dockerignore
-```
+1. En Oracle APEX abre **SQL Workshop > SQL Scripts > Upload**.
+2. Ejecuta `sql/01_schema.sql`.
+3. Ejecuta `sql/02_auditoria.sql`.
+4. Ejecuta `sql/03_seed.sql` para los datos de prueba.
 
-## Opción A: Ejecutar con Docker (recomendado, 100% portable)
+El modelo incluye `PROVEEDORES`, `CLIENTES`, `CONSOLAS`, `CONSOLAS_RETRO_DETALLE`, `CONSOLAS_FOTOS`, compras, ventas y `BITACORA_AUDITORIA`. La auditoría registra INSERT/UPDATE/DELETE sobre `CONSOLAS` y `VENTAS` con usuario Oracle, fecha, valores anteriores y nuevos en JSON CLOB.
 
-Requisito único: tener **Docker** y **Docker Compose** instalados.
+## 2. Node.js
 
-```bash
-# 1. Ubícate en la carpeta del proyecto
-cd gaming-solutions
+Requiere Node.js 18+ y acceso de red a Oracle. Copia `.env.example` a `.env` y configura el usuario, contraseña y connect string. Después:
 
-# 2. Construye la imagen y levanta el contenedor
-docker-compose up --build
-
-# 3. Abre en el navegador
-http://localhost:3000
-```
-
-### Qué ocurre por dentro (paso a paso)
-
-1. `docker-compose up --build` lee `docker-compose.yml` y ejecuta `docker build`
-   usando el `Dockerfile` en dos etapas:
-   - **Etapa `build`** (`node:18-alpine`): instala dependencias con `npm install`
-     y ejecuta `npm run build`, generando la carpeta `dist/` con HTML/CSS/JS
-     ya optimizados y minificados.
-   - **Etapa `production`** (`nginx:alpine`): parte de una imagen limpia de
-     Nginx, copia **únicamente** el contenido de `dist/` (no Node, no
-     `node_modules`, no código fuente) y aplica `nginx.conf`, que enruta
-     cualquier ruta desconocida hacia `index.html` (necesario para SPAs).
-2. El contenedor final expone el puerto `80` internamente.
-3. `docker-compose.yml` mapea `3000:80`, por lo que el sitio queda disponible
-   en `http://localhost:3000` de la máquina anfitriona.
-
-### Comandos útiles
-
-```bash
-# Levantar en segundo plano
-docker-compose up -d --build
-
-# Ver logs del contenedor
-docker-compose logs -f
-
-# Detener y eliminar el contenedor
-docker-compose down
-
-# Reconstruir desde cero sin caché (tras cambios grandes)
-docker-compose build --no-cache
-```
-
-## Opción B: Ejecutar en modo desarrollo (sin Docker)
-
-Requisito: Node.js 18+.
-
-```bash
+```powershell
 npm install
 npm run dev
 ```
 
-Esto levanta un servidor de desarrollo con hot-reload (por defecto en
-`http://localhost:5173`).
+Abre `http://localhost:3000`. Para revisar el diseño sin Oracle:
 
-Para generar el build de producción manualmente (sin Docker):
-
-```bash
-npm run build
-npm run preview
+```powershell
+$env:DEMO_MODE='true'; npm start
 ```
 
-## Personalización rápida
+El endpoint principal es `GET /api/dashboard`; el endpoint de inventario es `GET /api/inventory`; `GET /api/health` comprueba conectividad.
 
-- **Colores**: definidos en `tailwind.config.js` (`base.bg`, y los acentos
-  `cyan-500`, `purple-600`, `amber-500` de Tailwind por defecto).
-- **Textos e íconos**: editables directamente en cada componente dentro de
-  `src/components/`.
-- **Puerto expuesto**: cambia el `3000` en `docker-compose.yml` si ya lo
-  tienes ocupado, por ejemplo `"8080:80"`.
+También puedes usar el recurso ORDS que compartiste configurando `ORDS_INVENTORY_URL` en `.env`:
+
+```env
+ORDS_INVENTORY_URL=https://oracleapex.com/ords/luism/gaming/consolas/
+```
+
+El panel interpreta la respuesta ORDS `{ "items": [], "hasMore": false }` y normaliza columnas Oracle en mayúsculas o alias en minúsculas. La URL actualmente devuelve cero filas y funciona como lectura. Para guardar desde el panel necesitas publicar en ORDS handlers `POST`, `PUT` y `DELETE`, o configurar también las credenciales Oracle para que Node use `node-oracledb`.
+
+## 3. APEX y ORDS
+
+Para un back-office 100% APEX, crea desde **App Builder > Create > New Application** estas páginas: Dashboard, Interactive Report + Form para `CONSOLAS`, Interactive Report + Form para `CLIENTES`, Interactive Report + Form para `PROVEEDORES`, Master-Detail para `COMPRAS` y `VENTAS`, y un Interactive Report de solo lectura para `BITACORA_AUDITORIA`. Usa Select Lists para `TIPO`, `ESTADO_FUNCIONAL`, `METODO_PAGO` y `ESTADO_VENTA`; valida que el stock no sea negativo.
+
+Para conectar Node.js en Oracle Cloud, usa una conexión privada/VPN o allowlist de IP y el connect string del Autonomous Database. Con ADB normalmente se descarga el wallet desde **Database Actions > Download Wallet**, se configura `TNS_ADMIN` en el servidor Node y se usa como `ORACLE_CONNECT_STRING` un alias del `tnsnames.ora`. Alternativamente, publica procedimientos REST con ORDS y consume sus endpoints desde Node; no expongas el puerto Oracle directamente a internet.
+
+## 4. APEX REST opcional
+
+ORDS debe ejecutarse junto a la base o en una red privada. Protege los módulos con OAuth2 o la autenticación de APEX, usa HTTPS y limita los privilegios del usuario de aplicación. Node.js puede consumir ORDS con `fetch`, pero para consultas internas directas `node-oracledb` ofrece menos capas y mantiene el control transaccional.
