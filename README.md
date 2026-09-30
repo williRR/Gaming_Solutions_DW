@@ -15,7 +15,33 @@ En Oracle APEX abre **SQL Workshop > SQL Scripts > Upload** y ejecuta los script
 
 ---
 
-## 2. Catálogo Completo de Endpoints REST (ORDS)
+## 2. CRUD de productos y categorías
+
+El panel usa rutas locales de Express (`/api/inventory` y `/api/categories`). Para probarlas sin escribir en Oracle:
+
+```powershell
+$env:DEMO_MODE = "true"
+npm start
+```
+
+Abre `http://localhost:3000`. En demo, altas, ediciones y bajas solo viven en memoria y se pierden al detener el servidor.
+
+Cuando `DEMO_MODE` no está activado, Express reenvía las operaciones a ORDS. El código de integración espera estas rutas:
+
+| Recurso | Operaciones ORDS esperadas |
+| --- | --- |
+| `productos/` | `GET`, `POST` |
+| `productos/:id/` | `PUT`, `DELETE` |
+| `categorias/` | `GET`, `POST` |
+| `categorias/:id/` | `PUT`, `DELETE` |
+
+Los JSON usan los nombres `id`, `name`, `description`, `slug`, `warrantyMonths`, `categoryId`, `type`, `price`, `cost` y `stock`. Confirma con quien administra ORDS que las rutas, métodos, campos y reglas coincidan. La integración transforma respuestas de categorías en formato Oracle o camelCase, pero el payload de escritura descrito aquí debe ser aceptado por los handlers.
+
+**Estado del script incluido:** `sql/04_ords_rest_endpoints.sql` no publica actualmente el CRUD de categorías ni las operaciones `PUT`/`DELETE` de productos; solo define la consulta y creación de productos. Por eso el CRUD contra Oracle requiere que esos endpoints ya estén publicados por el compañero o que se completen en ORDS antes de desactivar el modo demo.
+
+---
+
+## 3. Catálogo Completo de Endpoints REST (ORDS)
 
 A continuación se detalla la lista de todos los Endpoints REST requeridos para la operación del panel administrativo.
 

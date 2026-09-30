@@ -34,14 +34,20 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Inventario Demo con Certificación #GS e Inspección Técnica
 const demoInventory = [
-  { id: 1, name: 'PlayStation 5 Slim Digital', brand: 'Sony', model: 'CFI-2015', type: 'NEXT_GEN', price: 499.99, cost: 420.00, stock: 8, status: 'Disponible', certificate: '#GS-2201', hwPct: 100, aestheticPct: 96, thermalPct: 98, warrantyMonths: 12 },
-  { id: 2, name: 'Nintendo Switch OLED White', brand: 'Nintendo', model: 'HEG-001', type: 'NEXT_GEN', price: 349.99, cost: 290.00, stock: 5, status: 'Disponible', certificate: '#GS-2202', hwPct: 100, aestheticPct: 98, thermalPct: 97, warrantyMonths: 12 },
-  { id: 3, name: 'Xbox Series X 1TB Black', brand: 'Microsoft', model: 'RRT-00010', type: 'NEXT_GEN', price: 479.99, cost: 400.00, stock: 3, status: 'Stock bajo', certificate: '#GS-2203', hwPct: 100, aestheticPct: 94, thermalPct: 96, warrantyMonths: 12 },
-  { id: 4, name: 'ASUS ROG Strix G16 RTX 4070', brand: 'ASUS', model: 'G614JI', type: 'LAPTOP', price: 1499.99, cost: 1250.00, stock: 4, status: 'Disponible', certificate: '#GS-2204', hwPct: 100, aestheticPct: 95, thermalPct: 95, warrantyMonths: 18 },
-  { id: 5, name: 'MSI Raider GE78 HX i9 RTX 4080', brand: 'MSI', model: 'GE78-HX', type: 'LAPTOP', price: 2199.99, cost: 1850.00, stock: 2, status: 'Stock bajo', certificate: '#GS-2205', hwPct: 100, aestheticPct: 99, thermalPct: 99, warrantyMonths: 18 },
-  { id: 6, name: 'Super Nintendo SNES Recapacitada', brand: 'Nintendo', model: 'SNS-001', type: 'RETRO', price: 189.99, cost: 100.00, stock: 2, status: 'Stock bajo', certificate: '#GS-2206', hwPct: 95, aestheticPct: 92, thermalPct: 96, warrantyMonths: 6 },
-  { id: 7, name: 'Game Boy Color Atomic Purple', brand: 'Nintendo', model: 'CGB-001', type: 'RETRO', price: 129.99, cost: 60.00, stock: 0, status: 'Agotado', certificate: '#GS-2207', hwPct: 90, aestheticPct: 88, thermalPct: 94, warrantyMonths: 6 },
-  { id: 8, name: 'Sega Genesis Model 1 HD', brand: 'Sega', model: 'MK-1601', type: 'RETRO', price: 159.99, cost: 75.00, stock: 4, status: 'Disponible', certificate: '#GS-2208', hwPct: 100, aestheticPct: 93, thermalPct: 97, warrantyMonths: 6 }
+  { id: 1, categoryId: 1, name: 'PlayStation 5 Slim Digital', brand: 'Sony', model: 'CFI-2015', type: 'NEXT_GEN', price: 499.99, cost: 420.00, stock: 8, status: 'Disponible', certificate: '#GS-2201', hwPct: 100, aestheticPct: 96, thermalPct: 98, warrantyMonths: 12 },
+  { id: 2, categoryId: 1, name: 'Nintendo Switch OLED White', brand: 'Nintendo', model: 'HEG-001', type: 'NEXT_GEN', price: 349.99, cost: 290.00, stock: 5, status: 'Disponible', certificate: '#GS-2202', hwPct: 100, aestheticPct: 98, thermalPct: 97, warrantyMonths: 12 },
+  { id: 3, categoryId: 1, name: 'Xbox Series X 1TB Black', brand: 'Microsoft', model: 'RRT-00010', type: 'NEXT_GEN', price: 479.99, cost: 400.00, stock: 3, status: 'Stock bajo', certificate: '#GS-2203', hwPct: 100, aestheticPct: 94, thermalPct: 96, warrantyMonths: 12 },
+  { id: 4, categoryId: 2, name: 'ASUS ROG Strix G16 RTX 4070', brand: 'ASUS', model: 'G614JI', type: 'LAPTOP', price: 1499.99, cost: 1250.00, stock: 4, status: 'Disponible', certificate: '#GS-2204', hwPct: 100, aestheticPct: 95, thermalPct: 95, warrantyMonths: 18 },
+  { id: 5, categoryId: 2, name: 'MSI Raider GE78 HX i9 RTX 4080', brand: 'MSI', model: 'GE78-HX', type: 'LAPTOP', price: 2199.99, cost: 1850.00, stock: 2, status: 'Stock bajo', certificate: '#GS-2205', hwPct: 100, aestheticPct: 99, thermalPct: 99, warrantyMonths: 18 },
+  { id: 6, categoryId: 3, name: 'Super Nintendo SNES Recapacitada', brand: 'Nintendo', model: 'SNS-001', type: 'RETRO', price: 189.99, cost: 100.00, stock: 2, status: 'Stock bajo', certificate: '#GS-2206', hwPct: 95, aestheticPct: 92, thermalPct: 96, warrantyMonths: 6 },
+  { id: 7, categoryId: 3, name: 'Game Boy Color Atomic Purple', brand: 'Nintendo', model: 'CGB-001', type: 'RETRO', price: 129.99, cost: 60.00, stock: 0, status: 'Agotado', certificate: '#GS-2207', hwPct: 90, aestheticPct: 88, thermalPct: 94, warrantyMonths: 6 },
+  { id: 8, categoryId: 3, name: 'Sega Genesis Model 1 HD', brand: 'Sega', model: 'MK-1601', type: 'RETRO', price: 159.99, cost: 75.00, stock: 4, status: 'Disponible', certificate: '#GS-2208', hwPct: 100, aestheticPct: 93, thermalPct: 97, warrantyMonths: 6 }
+];
+
+const demoCategories = [
+  { id: 1, name: 'Consolas Next-Gen', description: 'Consolas modernas verificadas', slug: 'consolas-next-gen', warrantyMonths: 12 },
+  { id: 2, name: 'Laptops Gamer', description: 'Equipos gamer con pruebas térmicas', slug: 'laptops-gamer', warrantyMonths: 18 },
+  { id: 3, name: 'Retro Restoration', description: 'Consolas retro restauradas', slug: 'retro-restoration', warrantyMonths: 6 }
 ];
 
 const demoSales = [
@@ -101,6 +107,8 @@ function normalizeOrdsItem(item) {
   const id = Number(value(['id', 'ID_PRODUCTO', 'id_producto', 'ID_CONSOLA', 'id_consola']));
   return {
     id,
+    categoryId: Number(value(['categoryId', 'category_id', 'ID_CATEGORIA', 'id_categoria'], 0)),
+    category: value(['category', 'CATEGORIA', 'categoria'], ''),
     name: value(['name', 'NOMBRE', 'nombre'], 'Sin nombre'),
     brand: value(['brand', 'MARCA', 'marca'], ''),
     model: value(['model', 'MODELO', 'modelo'], ''),
@@ -125,6 +133,18 @@ async function getOrdsInventory() {
 
 function collectionItems(payload) {
   return Array.isArray(payload) ? payload : payload.items || [];
+}
+
+async function requestOrdsResource(resource, method = 'GET', payload) {
+  const response = await fetch(`${ordsBaseUrl}${resource}`, {
+    method,
+    headers: { Accept: 'application/json', ...(payload ? { 'Content-Type': 'application/json' } : {}) },
+    ...(payload ? { body: JSON.stringify(payload) } : {}),
+    signal: AbortSignal.timeout(10000)
+  });
+  const body = await response.text();
+  if (!response.ok) throw new Error(`ORDS respondió HTTP ${response.status}: ${body || 'sin detalle'}`);
+  return body ? JSON.parse(body) : { ok: true };
 }
 
 async function getOrdsCollection(url) {
@@ -229,6 +249,110 @@ app.get('/api/inventory', async (_req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.get('/api/categories', async (_req, res) => {
+  if (demoMode) return res.json(demoCategories);
+  if (ordsInventoryUrl) {
+    try {
+      const categories = collectionItems(await requestOrdsResource('categorias/'));
+      return res.json(categories.map(item => ({
+        id: Number(item.id ?? item.ID_CATEGORIA ?? item.id_categoria),
+        name: item.name ?? item.NOMBRE,
+        description: item.description ?? item.DESCRIPCION ?? '',
+        slug: item.slug ?? item.SLUG,
+        warrantyMonths: Number(item.warrantyMonths ?? item.warranty_months ?? item.GARANTIA_MESES_DEFECTO ?? 12)
+      })));
+    } catch (error) { return res.status(502).json({ error: error.message }); }
+  }
+  try {
+    const categories = await query(`SELECT ID_CATEGORIA AS "id", NOMBRE AS "name", DESCRIPCION AS "description",
+      SLUG AS "slug", GARANTIA_MESES_DEFECTO AS "warrantyMonths" FROM CATEGORIAS ORDER BY NOMBRE`);
+    res.json(categories);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { name, description = '', slug, warrantyMonths } = req.body;
+    required(name, 'Nombre');
+    required(slug, 'Slug');
+    if (!name.trim()) throw new Error('El nombre no puede estar vacío');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim().toLowerCase())) throw new Error('El slug solo puede contener letras minúsculas, números y guiones');
+    const warranty = Number(warrantyMonths);
+    if (!Number.isInteger(warranty) || warranty < 0 || warranty > 99) throw new Error('La garantía debe ser un número entero entre 0 y 99');
+    const category = { name: name.trim(), description: description.trim(), slug: slug.trim().toLowerCase(), warrantyMonths: warranty };
+    if (demoMode) {
+      if (demoCategories.some(item => item.slug === category.slug)) throw new Error('Ya existe una categoría con ese slug');
+      const id = Math.max(0, ...demoCategories.map(item => item.id)) + 1;
+      demoCategories.push({ id, ...category });
+      return res.status(201).json({ id });
+    }
+    if (ordsInventoryUrl) return res.status(201).json(await requestOrdsResource('categorias/', 'POST', category));
+    const result = await withConnection(connection => connection.execute(
+      `INSERT INTO CATEGORIAS (NOMBRE, DESCRIPCION, SLUG, GARANTIA_MESES_DEFECTO)
+       VALUES (:name, :description, :slug, :warrantyMonths) RETURNING ID_CATEGORIA INTO :id`,
+      { ...category, id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+    ));
+    res.status(201).json({ id: result.outBinds.id[0] });
+  } catch (error) {
+    res.status(error.message.includes('ORA-02292') ? 409 : 400).json({ error: error.message });
+  }
+});
+
+app.patch('/api/categories/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new Error('ID de categoría inválido');
+    const { name, description, slug, warrantyMonths } = req.body;
+    required(name, 'Nombre');
+    required(slug, 'Slug');
+    if (!name.trim()) throw new Error('El nombre no puede estar vacío');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim().toLowerCase())) throw new Error('El slug solo puede contener letras minúsculas, números y guiones');
+    const warranty = Number(warrantyMonths);
+    if (!Number.isInteger(warranty) || warranty < 0 || warranty > 99) throw new Error('La garantía debe ser un número entero entre 0 y 99');
+    const category = { name: name.trim(), description: String(description || '').trim(), slug: slug.trim().toLowerCase(), warrantyMonths: warranty };
+    if (demoMode) {
+      const current = demoCategories.find(item => item.id === id);
+      if (!current) return res.status(404).json({ error: 'Categoría no encontrada' });
+      if (demoCategories.some(item => item.id !== id && item.slug === category.slug)) throw new Error('Ya existe una categoría con ese slug');
+      Object.assign(current, category);
+      return res.json({ ok: true });
+    }
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}/`, 'PUT', category));
+    const result = await withConnection(connection => connection.execute(
+      `UPDATE CATEGORIAS SET NOMBRE = :name, DESCRIPCION = :description, SLUG = :slug,
+       GARANTIA_MESES_DEFECTO = :warrantyMonths WHERE ID_CATEGORIA = :id`,
+      { ...category, id }
+    ));
+    if (!result.rowsAffected) return res.status(404).json({ error: 'Categoría no encontrada' });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(error.message.includes('ORA-02292') ? 409 : 400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new Error('ID de categoría inválido');
+    if (demoMode) {
+      if (!demoCategories.some(item => item.id === id)) return res.status(404).json({ error: 'Categoría no encontrada' });
+      if (demoInventory.some(item => item.categoryId === id)) {
+        return res.status(409).json({ error: 'No se puede eliminar: hay productos asignados a esta categoría' });
+      }
+      demoCategories.splice(demoCategories.findIndex(item => item.id === id), 1);
+      return res.json({ ok: true });
+    }
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}/`, 'DELETE'));
+    const result = await withConnection(connection => connection.execute(
+      'DELETE FROM CATEGORIAS WHERE ID_CATEGORIA = :id', { id }
+    ));
+    if (!result.rowsAffected) return res.status(404).json({ error: 'Categoría no encontrada' });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(error.message.includes('ORA-02292') ? 409 : 400).json({ error: error.message });
+  }
+});
+
 // Support Catalogs (Customers, Providers, Inventory Options)
 app.get('/api/catalogs', async (_req, res) => {
   if (demoMode) return res.json({ customers: demoCustomers, providers: demoProviders, inventory: demoInventory.filter(item => item.stock > 0) });
@@ -257,16 +381,24 @@ app.get('/api/catalogs', async (_req, res) => {
 // POST Create Product with GS Certificate
 app.post('/api/inventory', async (req, res) => {
   try {
-    const { name, brand, model, type, price, cost, stock } = req.body;
+    const { name, brand, model, type, categoryId, price, cost, stock } = req.body;
     required(name, 'Nombre');
+    if (!name.trim()) throw new Error('El nombre no puede estar vacío');
     const itemType = type || 'NEXT_GEN';
-    if (Number(price) < 0 || Number(stock) < 0) throw new Error('Datos de inventario inválidos');
-    
+    const productCategoryId = Number(categoryId);
+    if (!Number.isInteger(productCategoryId) || productCategoryId <= 0) throw new Error('Selecciona una categoría válida');
+    if (!['NEXT_GEN', 'LAPTOP', 'RETRO', 'ACCESORIO'].includes(itemType)) throw new Error('Tipo de hardware inválido');
+    if (!Number.isFinite(Number(price)) || Number(price) < 0 || !Number.isInteger(Number(stock)) || Number(stock) < 0) {
+      throw new Error('El precio debe ser positivo y el stock un entero no negativo');
+    }
+    if (!Number.isFinite(Number(cost || 0)) || Number(cost || 0) < 0) throw new Error('El costo debe ser un número no negativo');
+
     if (demoMode) {
+      if (!demoCategories.some(item => item.id === productCategoryId)) throw new Error('La categoría seleccionada no existe');
       const id = Math.max(...demoInventory.map(item => item.id)) + 1;
       const certificate = `#GS-${2200 + id}`;
       const newItem = {
-        id, name, brand: brand || 'Gaming Solutions', model: model || 'GS-CUSTOM',
+        id, categoryId: productCategoryId, name: name.trim(), brand: brand || 'Gaming Solutions', model: model || 'GS-CUSTOM',
         type: itemType, price: Number(price), cost: Number(cost || 0), stock: Number(stock),
         status: Number(stock) === 0 ? 'Agotado' : 'Disponible',
         certificate, hwPct: 100, aestheticPct: 95, thermalPct: 98, warrantyMonths: itemType === 'LAPTOP' ? 18 : itemType === 'RETRO' ? 6 : 12
@@ -275,15 +407,18 @@ app.post('/api/inventory', async (req, res) => {
       return res.status(201).json({ id, certificate });
     }
     if (ordsInventoryUrl && !poolPromise) {
-      const result = await postOrdsResource('productos', { name, brand, model, type: itemType, price: Number(price), cost: cost ? Number(cost) : null, stock: Number(stock) });
+      const result = await requestOrdsResource('productos/', 'POST', {
+        name, brand, model, type: itemType, categoryId: productCategoryId,
+        price: Number(price), cost: cost ? Number(cost) : 0, stock: Number(stock)
+      });
       return res.status(201).json(result);
     }
     const id = await transaction(async connection => {
       const result = await connection.execute(
         `INSERT INTO PRODUCTOS (ID_CATEGORIA, NOMBRE, MARCA, MODELO, TIPO_HARDWARE, PRECIO_VENTA, PRECIO_COMPRA, STOCK)
-         VALUES (1, :name, :brand, :model, :type, :price, :cost, :stock) RETURNING ID_PRODUCTO INTO :id`,
+         VALUES (:categoryId, :name, :brand, :model, :type, :price, :cost, :stock) RETURNING ID_PRODUCTO INTO :id`,
         {
-          name, brand: brand || '', model: model || '', type: itemType,
+          categoryId: productCategoryId, name, brand: brand || '', model: model || '', type: itemType,
           price: Number(price), cost: cost ? Number(cost) : 0, stock: Number(stock),
           id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
         }
@@ -301,19 +436,57 @@ app.post('/api/inventory', async (req, res) => {
   } catch (error) { res.status(400).json({ error: error.message }); }
 });
 
-// PATCH Update Product
-app.patch('/api/inventory/:id', async (req, res) => {
+async function updateProduct(req, res) {
   try {
-    const { price, stock, name } = req.body;
+    const id = Number(req.params.id);
+    const { name, brand, model, type, categoryId, price, cost, stock } = req.body;
+    if (!Number.isInteger(id) || id <= 0) throw new Error('ID de producto inválido');
+    required(name, 'Nombre');
+    const productCategoryId = Number(categoryId);
+    if (!Number.isInteger(productCategoryId) || productCategoryId <= 0) throw new Error('Selecciona una categoría válida');
+    if (!['NEXT_GEN', 'LAPTOP', 'RETRO', 'ACCESORIO'].includes(type)) throw new Error('Tipo de hardware inválido');
+    if (!Number.isFinite(Number(price)) || Number(price) < 0 || !Number.isInteger(Number(stock)) || Number(stock) < 0) {
+      throw new Error('El precio debe ser positivo y el stock un entero no negativo');
+    }
+    if (!Number.isFinite(Number(cost || 0)) || Number(cost || 0) < 0) throw new Error('El costo debe ser un número no negativo');
+    const product = {
+      name: name.trim(), brand: String(brand || '').trim(), model: String(model || '').trim(),
+      type, categoryId: productCategoryId, price: Number(price), cost: Number(cost || 0), stock: Number(stock)
+    };
     if (demoMode) {
-      const item = demoInventory.find(entry => entry.id === Number(req.params.id));
+      const item = demoInventory.find(entry => entry.id === id);
       if (!item) return res.status(404).json({ error: 'Producto no encontrado' });
-      if (name) item.name = name; if (price !== undefined) item.price = Number(price); if (stock !== undefined) item.stock = Number(stock);
+      if (!demoCategories.some(item => item.id === productCategoryId)) throw new Error('La categoría seleccionada no existe');
+      Object.assign(item, product);
       return res.json({ ok: true });
     }
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}/`, 'PUT', product));
     const result = await withConnection(connection => connection.execute(
-      `UPDATE PRODUCTOS SET NOMBRE = COALESCE(:name, NOMBRE), PRECIO_VENTA = COALESCE(:price, PRECIO_VENTA), STOCK = COALESCE(:stock, STOCK) WHERE ID_PRODUCTO = :id`,
-      { id: Number(req.params.id), name: name || null, price: price === undefined ? null : Number(price), stock: stock === undefined ? null : Number(stock) }
+      `UPDATE PRODUCTOS SET ID_CATEGORIA = :categoryId, NOMBRE = :name, MARCA = :brand, MODELO = :model,
+       TIPO_HARDWARE = :type, PRECIO_VENTA = :price, PRECIO_COMPRA = :cost, STOCK = :stock WHERE ID_PRODUCTO = :id`,
+      { ...product, id }
+    ));
+    if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.json({ ok: true });
+  } catch (error) { res.status(400).json({ error: error.message }); }
+}
+
+app.put('/api/inventory/:id', updateProduct);
+app.patch('/api/inventory/:id', updateProduct);
+
+app.delete('/api/inventory/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new Error('ID de producto inválido');
+    if (demoMode) {
+      const index = demoInventory.findIndex(item => item.id === id);
+      if (index === -1) return res.status(404).json({ error: 'Producto no encontrado' });
+      demoInventory.splice(index, 1);
+      return res.json({ ok: true });
+    }
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}/`, 'DELETE'));
+    const result = await withConnection(connection => connection.execute(
+      `UPDATE PRODUCTOS SET ACTIVO = 'N' WHERE ID_PRODUCTO = :id`, { id }
     ));
     if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ ok: true });

@@ -76,6 +76,19 @@
       </article>
     </section>
 
+    <section class="panel category-panel">
+      <div class="panel-heading">
+        <div><p class="eyebrow">CLASIFICACIÓN DEL CATÁLOGO</p><h3>Categorías</h3></div>
+        <button class="text-button" data-open="categoryModal">Nueva Categoría <span>→</span></button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nombre</th><th>Slug</th><th>Garantía</th><th>Descripción</th><th></th></tr></thead>
+          <tbody id="categoryRows"><tr><td colspan="5" class="loading">Cargando categorías...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="quick-actions">
       <div><p class="eyebrow">ACCIONES RÁPIDAS</p><h3>Operación del Negocio</h3></div>
       <div class="action-buttons">
@@ -89,23 +102,43 @@
       <form class="modal-card" data-form="inventory">
         <button type="button" class="close" data-close>×</button>
         <p class="eyebrow">INVENTARIO & CERTIFICACIÓN</p>
-        <h3>Registrar Producto Gamer</h3>
+        <h3 data-form-title>Registrar Producto Gamer</h3>
+        <input name="id" type="hidden">
         <div class="form-grid">
           <label>Nombre del Producto<input name="name" placeholder="Ej. PlayStation 5 Slim / Laptop ROG" required></label>
           <label>Marca<input name="brand" placeholder="Ej. Sony, ASUS, Nintendo"></label>
           <label>Modelo<input name="model" placeholder="Ej. CFI-2015, G614JI"></label>
-          <label>Categoría / Tipo Hardware
+          <label>Categoría<select name="categoryId" id="productCategory" required></select></label>
+          <label>Tipo de Hardware
             <select name="type">
-              <option value="NEXT_GEN">Consola Next-Gen (12M Garantía)</option>
-              <option value="LAPTOP">Laptop Gamer (18M Garantía)</option>
-              <option value="RETRO">Retro Restoration (6M Garantía)</option>
+              <option value="NEXT_GEN">Consola Next-Gen</option>
+              <option value="LAPTOP">Laptop Gamer</option>
+              <option value="RETRO">Retro Restoration</option>
+              <option value="ACCESORIO">Accesorio</option>
             </select>
           </label>
           <label>Precio de Venta ($)<input name="price" type="number" min="0" step="0.01" required></label>
           <label>Precio de Compra ($)<input name="cost" type="number" min="0" step="0.01"></label>
-          <label>Stock Inicial<input name="stock" type="number" min="0" required></label>
+          <label>Stock<input name="stock" type="number" min="0" step="1" required></label>
         </div>
-        <button class="submit" type="submit">Guardar Producto & Generar Certificado #GS</button>
+        <button class="submit" type="submit">Guardar Producto</button>
+        <p class="form-message"></p>
+      </form>
+    </div>
+
+    <div class="modal" id="categoryModal">
+      <form class="modal-card" id="categoryForm" data-form="category">
+        <button type="button" class="close" data-close>×</button>
+        <p class="eyebrow">CLASIFICACIÓN DEL CATÁLOGO</p>
+        <h3 data-form-title>Registrar Categoría</h3>
+        <input name="id" type="hidden">
+        <div class="form-grid">
+          <label>Nombre<input name="name" placeholder="Ej. Consolas Next-Gen" required></label>
+          <label>Slug<input name="slug" placeholder="Ej. consolas-next-gen" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required></label>
+          <label>Garantía predeterminada (meses)<input name="warrantyMonths" type="number" min="0" max="99" step="1" required></label>
+          <label>Descripción<input name="description" maxlength="300"></label>
+        </div>
+        <button class="submit" type="submit">Guardar Categoría</button>
         <p class="form-message"></p>
       </form>
     </div>
