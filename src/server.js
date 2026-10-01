@@ -143,7 +143,11 @@ async function requestOrdsResource(resource, method = 'GET', payload) {
     signal: AbortSignal.timeout(10000)
   });
   const body = await response.text();
-  if (!response.ok) throw new Error(`ORDS respondió HTTP ${response.status}: ${body || 'sin detalle'}`);
+  if (!response.ok) {
+    const error = new Error(`ORDS respondió HTTP ${response.status}: ${body || 'sin detalle'}`);
+    error.statusCode = response.status;
+    throw error;
+  }
   return body ? JSON.parse(body) : { ok: true };
 }
 
@@ -153,15 +157,13 @@ async function getOrdsCollection(url) {
   return response.json();
 }
 
-async function postOrdsResource(resource, payload) {
-  const response = await fetch(`${ordsBaseUrl}${resource}/`, {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const body = await response.text();
-  if (!response.ok) throw new Error(`ORDS respondió HTTP ${response.status}: ${body || 'sin detalle'}`);
-  return body ? JSON.parse(body) : { ok: true };
+async function getOrdsMetrics() {
+  return getOrdsCollection(`${ordsBaseUrl}dashboard/`);
+}
+
+async function getOrdsCatalog(resource) {
+  const payload = await getOrdsCollection(`${ordsBaseUrl}${resource}`);
+  return collectionItems(payload);
 }
 
 // Health Status
@@ -193,17 +195,12 @@ app.get('/api/dashboard', async (_req, res) => {
   }
   try {
     if (ordsInventoryUrl) {
-      const inventory = await getOrdsInventory();
+      const [inventory, dashboard] = await Promise.all([getOrdsInventory(), getOrdsMetrics()]);
       return res.json({
         mode: 'ords',
         inventory,
         sales: demoSales,
-        metrics: {
-          inventory: inventory.reduce((total, item) => total + item.stock, 0),
-          lowStock: inventory.filter(item => item.stock > 0 && item.stock <= 3).length,
-          monthlySales: 13840.50,
-          customers: 86
-        }
+        metrics: dashboard.metrics
       });
     }
     const [inventory, sales, metrics] = await Promise.all([
@@ -253,7 +250,7 @@ app.get('/api/categories', async (_req, res) => {
   if (demoMode) return res.json(demoCategories);
   if (ordsInventoryUrl) {
     try {
-      const categories = collectionItems(await requestOrdsResource('categorias/'));
+      const categories = await getOrdsCatalog('categorias/');
       return res.json(categories.map(item => ({
         id: Number(item.id ?? item.ID_CATEGORIA ?? item.id_categoria),
         name: item.name ?? item.NOMBRE,
@@ -294,7 +291,7 @@ app.post('/api/categories', async (req, res) => {
     ));
     res.status(201).json({ id: result.outBinds.id[0] });
   } catch (error) {
-    res.status(error.message.includes('ORA-02292') ? 409 : 400).json({ error: error.message });
+    res.status(error.statusCode || (error.message.includes('ORA-02292') ? 409 : 400)).json({ error: error.message });
   }
 });
 
@@ -317,7 +314,7 @@ app.patch('/api/categories/:id', async (req, res) => {
       Object.assign(current, category);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}/`, 'PUT', category));
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}`, 'PUT', category));
     const result = await withConnection(connection => connection.execute(
       `UPDATE CATEGORIAS SET NOMBRE = :name, DESCRIPCION = :description, SLUG = :slug,
        GARANTIA_MESES_DEFECTO = :warrantyMonths WHERE ID_CATEGORIA = :id`,
@@ -326,7 +323,7 @@ app.patch('/api/categories/:id', async (req, res) => {
     if (!result.rowsAffected) return res.status(404).json({ error: 'Categoría no encontrada' });
     res.json({ ok: true });
   } catch (error) {
-    res.status(error.message.includes('ORA-02292') ? 409 : 400).json({ error: error.message });
+    res.status(error.statusCode || (error.message.includes('ORA-02292') ? 409 : 400)).json({ error: error.message });
   }
 });
 
@@ -342,7 +339,7 @@ app.delete('/api/categories/:id', async (req, res) => {
       demoCategories.splice(demoCategories.findIndex(item => item.id === id), 1);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}/`, 'DELETE'));
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}`, 'DELETE'));
     const result = await withConnection(connection => connection.execute(
       'DELETE FROM CATEGORIAS WHERE ID_CATEGORIA = :id', { id }
     ));
@@ -358,15 +355,13 @@ app.get('/api/catalogs', async (_req, res) => {
   if (demoMode) return res.json({ customers: demoCustomers, providers: demoProviders, inventory: demoInventory.filter(item => item.stock > 0) });
   if (ordsInventoryUrl && !poolPromise) {
     try {
-      const [customersResult, inventoryResult] = await Promise.allSettled([
-        getOrdsCollection(`${ordsBaseUrl}clientes/`),
+      const [catalogs, providers, inventory] = await Promise.all([
+        getOrdsCatalog('catalogos/'),
+        getOrdsCatalog('proveedores/'),
         getOrdsInventory()
       ]);
-      const customers = customersResult.status === 'fulfilled' ? collectionItems(customersResult.value) : demoCustomers;
-      const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : demoInventory;
-      return res.json({ customers, providers: demoProviders, inventory });
-    }
-    catch (error) { return res.status(502).json({ error: error.message }); }
+      return res.json({ customers: catalogs, providers, inventory });
+    } catch (error) { return res.status(502).json({ error: error.message }); }
   }
   try {
     const [customers, providers, inventory] = await Promise.all([
@@ -381,7 +376,7 @@ app.get('/api/catalogs', async (_req, res) => {
 // POST Create Product with GS Certificate
 app.post('/api/inventory', async (req, res) => {
   try {
-    const { name, brand, model, type, categoryId, price, cost, stock } = req.body;
+    const { name, brand, model, type, categoryId, price, cost, stock, description, hw_pct, aesthetic_pct, thermal_pct } = req.body;
     required(name, 'Nombre');
     if (!name.trim()) throw new Error('El nombre no puede estar vacío');
     const itemType = type || 'NEXT_GEN';
@@ -409,7 +404,9 @@ app.post('/api/inventory', async (req, res) => {
     if (ordsInventoryUrl && !poolPromise) {
       const result = await requestOrdsResource('productos/', 'POST', {
         name, brand, model, type: itemType, categoryId: productCategoryId,
-        price: Number(price), cost: cost ? Number(cost) : 0, stock: Number(stock)
+        price: Number(price), cost: cost ? Number(cost) : 0, stock: Number(stock),
+        description: description || '', hw_pct: Number(hw_pct ?? 100),
+        aesthetic_pct: Number(aesthetic_pct ?? 95), thermal_pct: Number(thermal_pct ?? 98)
       });
       return res.status(201).json(result);
     }
@@ -433,42 +430,34 @@ app.post('/api/inventory', async (req, res) => {
       return productId;
     });
     res.status(201).json({ id });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) { res.status(error.statusCode || 400).json({ error: error.message }); }
 });
 
 async function updateProduct(req, res) {
   try {
     const id = Number(req.params.id);
-    const { name, brand, model, type, categoryId, price, cost, stock } = req.body;
+    const { price, stock } = req.body;
     if (!Number.isInteger(id) || id <= 0) throw new Error('ID de producto inválido');
-    required(name, 'Nombre');
-    const productCategoryId = Number(categoryId);
-    if (!Number.isInteger(productCategoryId) || productCategoryId <= 0) throw new Error('Selecciona una categoría válida');
-    if (!['NEXT_GEN', 'LAPTOP', 'RETRO', 'ACCESORIO'].includes(type)) throw new Error('Tipo de hardware inválido');
+    required(price, 'Precio');
+    required(stock, 'Stock');
     if (!Number.isFinite(Number(price)) || Number(price) < 0 || !Number.isInteger(Number(stock)) || Number(stock) < 0) {
       throw new Error('El precio debe ser positivo y el stock un entero no negativo');
     }
-    if (!Number.isFinite(Number(cost || 0)) || Number(cost || 0) < 0) throw new Error('El costo debe ser un número no negativo');
-    const product = {
-      name: name.trim(), brand: String(brand || '').trim(), model: String(model || '').trim(),
-      type, categoryId: productCategoryId, price: Number(price), cost: Number(cost || 0), stock: Number(stock)
-    };
+    const product = { price: Number(price), stock: Number(stock) };
     if (demoMode) {
       const item = demoInventory.find(entry => entry.id === id);
       if (!item) return res.status(404).json({ error: 'Producto no encontrado' });
-      if (!demoCategories.some(item => item.id === productCategoryId)) throw new Error('La categoría seleccionada no existe');
       Object.assign(item, product);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}/`, 'PUT', product));
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}`, 'PUT', product));
     const result = await withConnection(connection => connection.execute(
-      `UPDATE PRODUCTOS SET ID_CATEGORIA = :categoryId, NOMBRE = :name, MARCA = :brand, MODELO = :model,
-       TIPO_HARDWARE = :type, PRECIO_VENTA = :price, PRECIO_COMPRA = :cost, STOCK = :stock WHERE ID_PRODUCTO = :id`,
+      `UPDATE PRODUCTOS SET PRECIO_VENTA = :price, STOCK = :stock WHERE ID_PRODUCTO = :id`,
       { ...product, id }
     ));
     if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ ok: true });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) { res.status(error.statusCode || 400).json({ error: error.message }); }
 }
 
 app.put('/api/inventory/:id', updateProduct);
@@ -481,16 +470,17 @@ app.delete('/api/inventory/:id', async (req, res) => {
     if (demoMode) {
       const index = demoInventory.findIndex(item => item.id === id);
       if (index === -1) return res.status(404).json({ error: 'Producto no encontrado' });
+      demoInventory[index].active = false;
       demoInventory.splice(index, 1);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}/`, 'DELETE'));
+    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}`, 'DELETE'));
     const result = await withConnection(connection => connection.execute(
       `UPDATE PRODUCTOS SET ACTIVO = 'N' WHERE ID_PRODUCTO = :id`, { id }
     ));
     if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ ok: true });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) { res.status(error.statusCode || 400).json({ error: error.message }); }
 });
 
 // POST Register Cash / Manual Sale
@@ -511,7 +501,14 @@ app.post('/api/sales', async (req, res) => {
       });
       return res.status(201).json({ id: newId });
     }
-    if (ordsInventoryUrl && !poolPromise) return res.status(201).json(await postOrdsResource('ventas', { customerId: Number(customerId), payment, items }));
+    if (ordsInventoryUrl && !poolPromise) {
+      if (items.length !== 1) return res.status(400).json({ error: 'El endpoint ORDS actual solo permite un producto por venta.' });
+      const item = items[0];
+      return res.status(201).json(await requestOrdsResource('ventas/', 'POST', {
+        customerId: Number(customerId), payment, total: Number(item.price) * Number(item.quantity),
+        productId: Number(item.productId), quantity: Number(item.quantity), price: Number(item.price)
+      }));
+    }
     if (!poolPromise) return res.status(501).json({ error: 'Configura la conexión Oracle para registrar ventas.' });
     
     const id = await transaction(async connection => {
@@ -535,7 +532,7 @@ app.post('/api/sales', async (req, res) => {
       return saleId;
     });
     res.status(201).json({ id });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) { res.status(error.statusCode || 400).json({ error: error.message }); }
 });
 
 // POST Register Purchase from Supplier
@@ -545,7 +542,7 @@ app.post('/api/purchases', async (req, res) => {
     required(providerId, 'Proveedor');
     if (!Array.isArray(items) || !items.length) throw new Error('Agrega al menos un producto');
     if (demoMode) return res.status(201).json({ id: 2001 });
-    if (ordsInventoryUrl && !poolPromise) return res.status(201).json(await postOrdsResource('compras', { providerId: Number(providerId), items }));
+    if (ordsInventoryUrl && !poolPromise) return res.status(501).json({ error: 'El script ORDS actual no publica el endpoint de compras.' });
     if (!poolPromise) return res.status(501).json({ error: 'Configura la conexión Oracle para registrar compras.' });
     
     const id = await transaction(async connection => {
@@ -568,7 +565,7 @@ app.post('/api/purchases', async (req, res) => {
       return purchaseId;
     });
     res.status(201).json({ id });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) { res.status(error.statusCode || 400).json({ error: error.message }); }
 });
 
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));

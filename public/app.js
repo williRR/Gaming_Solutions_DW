@@ -117,6 +117,7 @@ async function loadCatalogs() {
 function resetForm(form) {
   form.reset();
   if (form.elements.id) form.elements.id.value = '';
+  Array.from(form.elements).forEach(element => { element.disabled = false; });
   if (form.id === 'categoryForm') form.elements.slug.dataset.userEdited = 'false';
   form.querySelector('.form-message').textContent = '';
   form.querySelector('.form-message').className = 'form-message';
@@ -156,12 +157,15 @@ function editProduct(id) {
   form.elements.name.value = product.name || '';
   form.elements.brand.value = product.brand || '';
   form.elements.model.value = product.model || '';
-  form.elements.categoryId.value = product.categoryId || categories.find(item => item.name === product.category)?.id || '';
+  form.elements.categoryId.value = product.categoryId || '';
   form.elements.type.value = product.type || 'NEXT_GEN';
   form.elements.price.value = product.price;
   form.elements.cost.value = product.cost ?? '';
   form.elements.stock.value = product.stock;
-  form.querySelector('[data-form-title]').textContent = 'Editar Producto';
+  ['name', 'brand', 'model', 'categoryId', 'type', 'cost'].forEach(name => {
+    form.elements[name].disabled = true;
+  });
+  form.querySelector('[data-form-title]').textContent = 'Editar Precio y Stock';
   modal.classList.add('open');
 }
 
@@ -193,11 +197,13 @@ async function submitForm(event) {
     if (form.dataset.form === 'inventory') {
       endpoint = id ? `/api/inventory/${encodeURIComponent(id)}` : '/api/inventory';
       method = id ? 'PUT' : 'POST';
-      payload = {
-        name: data.name, brand: data.brand, model: data.model, type: data.type,
-        categoryId: Number(data.categoryId), price: Number(data.price),
-        cost: data.cost ? Number(data.cost) : 0, stock: Number(data.stock)
-      };
+      payload = id
+        ? { price: Number(data.price), stock: Number(data.stock) }
+        : {
+            name: data.name, brand: data.brand, model: data.model, type: data.type,
+            categoryId: Number(data.categoryId), price: Number(data.price),
+            cost: data.cost ? Number(data.cost) : 0, stock: Number(data.stock)
+          };
     } else if (form.dataset.form === 'category') {
       endpoint = id ? `/api/categories/${encodeURIComponent(id)}` : '/api/categories';
       method = id ? 'PATCH' : 'POST';

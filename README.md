@@ -12,6 +12,7 @@ En Oracle APEX abre **SQL Workshop > SQL Scripts > Upload** y ejecuta los script
 2. **`sql/02_auditoria.sql`**: Crea la tabla `BITACORA_AUDITORIA` y los triggers PL/SQL de seguimiento automatizado en JSON.
 3. **`sql/03_seed.sql`**: Inserta datos de prueba de productos (PS5, Xbox Series X, Switch OLED, Laptops ROG/MSI, SNES, GBC, Genesis) con sus certificaciones `#GS-2201` a `#GS-2208`, clientes, proveedores y ventas.
 4. **`sql/04_ords_rest_endpoints.sql`**: Publica automáticamente los Endpoints REST en Oracle ORDS.
+5. **`sql/05_ords_crud_extensions.sql`**: Extiende ORDS con CRUD de categorías, actualización/baja lógica de productos y lectura de proveedores. También hace explícita la categoría al crear productos y rechaza ventas sin stock suficiente.
 
 ---
 
@@ -26,18 +27,22 @@ npm start
 
 Abre `http://localhost:3000`. En demo, altas, ediciones y bajas solo viven en memoria y se pierden al detener el servidor.
 
-Cuando `DEMO_MODE` no está activado, Express reenvía las operaciones a ORDS. El código de integración espera estas rutas:
+Cuando `DEMO_MODE` no está activado, Express reenvía las operaciones a ORDS. El contrato implementado por los scripts es:
 
 | Recurso | Operaciones ORDS esperadas |
 | --- | --- |
 | `productos/` | `GET`, `POST` |
-| `productos/:id/` | `PUT`, `DELETE` |
+| `productos/:id` | `PUT`, `DELETE` |
 | `categorias/` | `GET`, `POST` |
-| `categorias/:id/` | `PUT`, `DELETE` |
+| `categorias/:id` | `PUT`, `DELETE` |
+| `dashboard/` | `GET` |
+| `catalogos/` | `GET` clientes |
+| `proveedores/` | `GET` (agregado en el script 05) |
+| `ventas/` | `POST` (un producto por venta) |
 
-Los JSON usan los nombres `id`, `name`, `description`, `slug`, `warrantyMonths`, `categoryId`, `type`, `price`, `cost` y `stock`. Confirma con quien administra ORDS que las rutas, métodos, campos y reglas coincidan. La integración transforma respuestas de categorías en formato Oracle o camelCase, pero el payload de escritura descrito aquí debe ser aceptado por los handlers.
+Las actualizaciones de producto siguen el contrato de los endpoints existentes y solo permiten cambiar `price` y `stock`. Al crear un producto, el formulario envía `categoryId`, `name`, `brand`, `model`, `type`, `price`, `cost` y `stock`. Categorías usan `name`, `description`, `slug` y `warrantyMonths`.
 
-**Estado del script incluido:** `sql/04_ords_rest_endpoints.sql` no publica actualmente el CRUD de categorías ni las operaciones `PUT`/`DELETE` de productos; solo define la consulta y creación de productos. Por eso el CRUD contra Oracle requiere que esos endpoints ya estén publicados por el compañero o que se completen en ORDS antes de desactivar el modo demo.
+Después de que el esquema y ORDS existan, ejecuta `sql/05_ords_crud_extensions.sql` una vez en el mismo esquema de APEX, después de `04`. No es necesario recrear las tablas para aplicar esa extensión. Revisa [GUIA_INTEGRACION_ORDS.md](GUIA_INTEGRACION_ORDS.md) para conocer el flujo, payloads y limitaciones. El script SQL debe ejecutarse y comprobarse en el workspace Oracle del equipo: no se valida automáticamente desde Node.js.
 
 ---
 
