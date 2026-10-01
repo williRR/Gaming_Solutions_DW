@@ -2,6 +2,7 @@ const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD
 let catalogs = { customers: [], providers: [], inventory: [] };
 let inventoryItems = [];
 let categories = [];
+let applicationMode = 'unknown';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -82,6 +83,7 @@ async function fetchJson(url, options = {}) {
 
 async function loadDashboard() {
   const data = await fetchJson('/api/dashboard');
+  applicationMode = data.mode || 'oracle';
   document.querySelector('#metricInventory').textContent = data.metrics.inventory;
   document.querySelector('#metricSales').textContent = money.format(data.metrics.monthlySales);
   document.querySelector('#metricLowStock').textContent = data.metrics.lowStock;
@@ -90,6 +92,7 @@ async function loadDashboard() {
   inventoryItems = data.inventory;
   renderInventory(inventoryItems);
   renderSales(data.sales);
+  return applicationMode;
 }
 
 async function loadCategories() {
@@ -99,6 +102,23 @@ async function loadCategories() {
   select.innerHTML = categories.map(category =>
     `<option value="${Number(category.id)}">${escapeHtml(category.name)}</option>`
   ).join('');
+}
+
+async function loadAudit() {
+  const rows = document.querySelector('#auditRows');
+  try {
+    const events = await fetchJson('/api/audit');
+    rows.innerHTML = events.map(event => `
+      <tr>
+        <td>${escapeHtml(event.timestamp)}</td>
+        <td>${escapeHtml(event.table)}</td>
+        <td>${escapeHtml(event.operation)}</td>
+        <td>${escapeHtml(event.db_user)}</td>
+        <td><code>${escapeHtml(event.new_values || '')}</code></td>
+      </tr>`).join('') || '<tr><td colspan="5" class="loading">No hay eventos de auditoría</td></tr>';
+  } catch (error) {
+    rows.innerHTML = `<tr><td colspan="5" class="loading">${escapeHtml(error.message)}</td></tr>`;
+  }
 }
 
 async function loadCatalogs() {
@@ -128,7 +148,9 @@ async function openModal(id) {
   const form = modal.querySelector('form');
   resetForm(form);
   if (id === 'inventoryModal') {
-    await loadCategories();
+    const categoryField = document.querySelector('#productCategoryField');
+    categoryField.hidden = applicationMode === 'ords';
+    if (applicationMode !== 'ords') await loadCategories();
     form.querySelector('[data-form-title]').textContent = 'Registrar Producto Gamer';
   } else if (id === 'categoryModal') {
     form.querySelector('[data-form-title]').textContent = 'Registrar Categoría';
@@ -234,7 +256,12 @@ async function submitForm(event) {
     message.className = 'form-message success';
     form.reset();
     if (form.elements.id) form.elements.id.value = '';
-    await Promise.all([loadDashboard(), loadCategories(), loadCatalogs()]);
+    await Promise.all([
+      loadDashboard(),
+      loadCatalogs(),
+      applicationMode === 'ords' ? Promise.resolve() : loadCategories(),
+      loadAudit()
+    ]);
     setTimeout(() => closeModal(form.closest('.modal')), 1100);
   } catch (error) {
     message.textContent = error.message;
@@ -253,15 +280,31 @@ async function deleteResource(url, label, reload) {
 }
 
 async function boot() {
+  let mode;
   try {
-    await Promise.all([loadDashboard(), loadCategories(), loadCatalogs()]);
+    mode = await loadDashboard();
   } catch (error) {
     document.querySelector('#connectionMode').textContent = 'SIN CONEXIÓN';
     document.querySelector('#inventoryRows').innerHTML = `<tr><td colspan="7" class="loading">${escapeHtml(error.message)}</td></tr>`;
+    document.querySelector('#salesList').innerHTML = '<div class="loading">No se pudo cargar el panel</div>';
+    return;
   }
+
+  document.querySelector('#categoryPanel').hidden = mode === 'ords';
+  document.querySelector('#productCategoryField').hidden = mode === 'ords';
+  await Promise.all([
+    loadCatalogs().catch(error => {
+      document.querySelector('#salesList').innerHTML = `<div class="loading">${escapeHtml(error.message)}</div>`;
+    }),
+    mode === 'ords' ? Promise.resolve() : loadCategories().catch(error => {
+      document.querySelector('#categoryRows').innerHTML = `<tr><td colspan="5" class="loading">${escapeHtml(error.message)}</td></tr>`;
+    }),
+    loadAudit()
+  ]);
 }
 
 document.querySelector('#refresh').addEventListener('click', boot);
+document.querySelector('#refreshAudit').addEventListener('click', loadAudit);
 document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => {
   openModal(button.dataset.open).catch(error => window.alert(error.message));
 }));

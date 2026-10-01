@@ -8,8 +8,18 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const apiVersion = '2026.09.28-apex-ords';
 const demoMode = process.env.DEMO_MODE === 'true';
-const ordsInventoryUrl = process.env.ORDS_INVENTORY_URL || 'https://oracleapex.com/ords/willi_gs/gaming/productos/';
-const ordsBaseUrl = ordsInventoryUrl.replace(/(productos|consolas)\/?$/, '');
+const ordsResources = {
+  products: process.env.ORDS_PRODUCTS_RESOURCE || 'productos/',
+  dashboard: process.env.ORDS_DASHBOARD_RESOURCE || 'dashboard/',
+  customers: process.env.ORDS_CUSTOMERS_RESOURCE || 'clientes/',
+  providers: process.env.ORDS_PROVIDERS_RESOURCE || 'proveedores/',
+  sales: process.env.ORDS_SALES_RESOURCE || 'ventas/',
+  purchases: process.env.ORDS_PURCHASES_RESOURCE || 'compras/',
+  audit: process.env.ORDS_AUDIT_RESOURCE || 'auditoria/'
+};
+const legacyInventoryUrl = process.env.ORDS_INVENTORY_URL || '';
+const inferredOrdsBaseUrl = legacyInventoryUrl.replace(/productos\/?$/, '');
+const ordsBaseUrl = (process.env.ORDS_BASE_URL || inferredOrdsBaseUrl).replace(/\/?$/, '/');
 
 const hasOracleCredentials = Boolean(
   process.env.ORACLE_USER &&
@@ -20,7 +30,7 @@ const hasOracleCredentials = Boolean(
 
 const oracleUnavailableMessage = 'Configura las variables de conexión Oracle o activa DEMO_MODE=true.';
 
-const poolPromise = demoMode || ordsInventoryUrl || !hasOracleCredentials ? null : oracledb.createPool({
+const poolPromise = demoMode || ordsBaseUrl || !hasOracleCredentials ? null : oracledb.createPool({
   user: process.env.ORACLE_USER,
   password: process.env.ORACLE_PASSWORD,
   connectString: process.env.ORACLE_CONNECT_STRING,
@@ -135,8 +145,16 @@ function collectionItems(payload) {
   return Array.isArray(payload) ? payload : payload.items || [];
 }
 
+function ordsResourceUrl(resource, id) {
+  const normalized = resource.replace(/^\/+|\/+$/g, '');
+  const path = id === undefined ? `${normalized}/` : `${normalized}/${encodeURIComponent(id)}`;
+  return new URL(path, ordsBaseUrl).toString();
+}
+
+const ordsInventoryUrl = ordsBaseUrl ? ordsResourceUrl(ordsResources.products) : '';
+
 async function requestOrdsResource(resource, method = 'GET', payload) {
-  const response = await fetch(`${ordsBaseUrl}${resource}`, {
+  const response = await fetch(resource, {
     method,
     headers: { Accept: 'application/json', ...(payload ? { 'Content-Type': 'application/json' } : {}) },
     ...(payload ? { body: JSON.stringify(payload) } : {}),
@@ -158,18 +176,18 @@ async function getOrdsCollection(url) {
 }
 
 async function getOrdsMetrics() {
-  return getOrdsCollection(`${ordsBaseUrl}dashboard/`);
+  return getOrdsCollection(ordsResourceUrl(ordsResources.dashboard));
 }
 
 async function getOrdsCatalog(resource) {
-  const payload = await getOrdsCollection(`${ordsBaseUrl}${resource}`);
+  const payload = await getOrdsCollection(ordsResourceUrl(resource));
   return collectionItems(payload);
 }
 
 // Health Status
 app.get('/api/health', async (_req, res) => {
   if (demoMode) return res.json({ ok: true, mode: 'demo', apiVersion });
-  if (ordsInventoryUrl) {
+  if (ordsBaseUrl) {
     try { await getOrdsInventory(); return res.json({ ok: true, mode: 'ords', endpoint: ordsInventoryUrl, apiVersion }); }
     catch (error) { return res.status(503).json({ ok: false, mode: 'ords', error: error.message }); }
   }
@@ -194,7 +212,7 @@ app.get('/api/dashboard', async (_req, res) => {
     });
   }
   try {
-    if (ordsInventoryUrl) {
+    if (ordsBaseUrl) {
       const [inventory, dashboard] = await Promise.all([getOrdsInventory(), getOrdsMetrics()]);
       return res.json({
         mode: 'ords',
@@ -228,7 +246,7 @@ app.get('/api/dashboard', async (_req, res) => {
 // GET Catalog / Inventory
 app.get('/api/inventory', async (_req, res) => {
   if (demoMode) return res.json(demoInventory);
-  if (ordsInventoryUrl) {
+  if (ordsBaseUrl) {
     try { return res.json(await getOrdsInventory()); } catch (error) { return res.status(502).json({ error: error.message }); }
   }
   try {
@@ -248,18 +266,7 @@ app.get('/api/inventory', async (_req, res) => {
 
 app.get('/api/categories', async (_req, res) => {
   if (demoMode) return res.json(demoCategories);
-  if (ordsInventoryUrl) {
-    try {
-      const categories = await getOrdsCatalog('categorias/');
-      return res.json(categories.map(item => ({
-        id: Number(item.id ?? item.ID_CATEGORIA ?? item.id_categoria),
-        name: item.name ?? item.NOMBRE,
-        description: item.description ?? item.DESCRIPCION ?? '',
-        slug: item.slug ?? item.SLUG,
-        warrantyMonths: Number(item.warrantyMonths ?? item.warranty_months ?? item.GARANTIA_MESES_DEFECTO ?? 12)
-      })));
-    } catch (error) { return res.status(502).json({ error: error.message }); }
-  }
+  if (!demoMode && ordsBaseUrl) return res.status(501).json({ error: 'El contrato ORDS configurado no incluye endpoints de categorías.' });
   try {
     const categories = await query(`SELECT ID_CATEGORIA AS "id", NOMBRE AS "name", DESCRIPCION AS "description",
       SLUG AS "slug", GARANTIA_MESES_DEFECTO AS "warrantyMonths" FROM CATEGORIAS ORDER BY NOMBRE`);
@@ -277,13 +284,13 @@ app.post('/api/categories', async (req, res) => {
     const warranty = Number(warrantyMonths);
     if (!Number.isInteger(warranty) || warranty < 0 || warranty > 99) throw new Error('La garantía debe ser un número entero entre 0 y 99');
     const category = { name: name.trim(), description: description.trim(), slug: slug.trim().toLowerCase(), warrantyMonths: warranty };
+    if (!demoMode && ordsBaseUrl) return res.status(501).json({ error: 'El contrato ORDS configurado no incluye endpoints de categorías.' });
     if (demoMode) {
       if (demoCategories.some(item => item.slug === category.slug)) throw new Error('Ya existe una categoría con ese slug');
       const id = Math.max(0, ...demoCategories.map(item => item.id)) + 1;
       demoCategories.push({ id, ...category });
       return res.status(201).json({ id });
     }
-    if (ordsInventoryUrl) return res.status(201).json(await requestOrdsResource('categorias/', 'POST', category));
     const result = await withConnection(connection => connection.execute(
       `INSERT INTO CATEGORIAS (NOMBRE, DESCRIPCION, SLUG, GARANTIA_MESES_DEFECTO)
        VALUES (:name, :description, :slug, :warrantyMonths) RETURNING ID_CATEGORIA INTO :id`,
@@ -307,6 +314,7 @@ app.patch('/api/categories/:id', async (req, res) => {
     const warranty = Number(warrantyMonths);
     if (!Number.isInteger(warranty) || warranty < 0 || warranty > 99) throw new Error('La garantía debe ser un número entero entre 0 y 99');
     const category = { name: name.trim(), description: String(description || '').trim(), slug: slug.trim().toLowerCase(), warrantyMonths: warranty };
+    if (!demoMode && ordsBaseUrl) return res.status(501).json({ error: 'El contrato ORDS configurado no incluye endpoints de categorías.' });
     if (demoMode) {
       const current = demoCategories.find(item => item.id === id);
       if (!current) return res.status(404).json({ error: 'Categoría no encontrada' });
@@ -314,7 +322,6 @@ app.patch('/api/categories/:id', async (req, res) => {
       Object.assign(current, category);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}`, 'PUT', category));
     const result = await withConnection(connection => connection.execute(
       `UPDATE CATEGORIAS SET NOMBRE = :name, DESCRIPCION = :description, SLUG = :slug,
        GARANTIA_MESES_DEFECTO = :warrantyMonths WHERE ID_CATEGORIA = :id`,
@@ -331,6 +338,7 @@ app.delete('/api/categories/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) throw new Error('ID de categoría inválido');
+    if (!demoMode && ordsBaseUrl) return res.status(501).json({ error: 'El contrato ORDS configurado no incluye endpoints de categorías.' });
     if (demoMode) {
       if (!demoCategories.some(item => item.id === id)) return res.status(404).json({ error: 'Categoría no encontrada' });
       if (demoInventory.some(item => item.categoryId === id)) {
@@ -339,7 +347,6 @@ app.delete('/api/categories/:id', async (req, res) => {
       demoCategories.splice(demoCategories.findIndex(item => item.id === id), 1);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`categorias/${id}`, 'DELETE'));
     const result = await withConnection(connection => connection.execute(
       'DELETE FROM CATEGORIAS WHERE ID_CATEGORIA = :id', { id }
     ));
@@ -353,11 +360,11 @@ app.delete('/api/categories/:id', async (req, res) => {
 // Support Catalogs (Customers, Providers, Inventory Options)
 app.get('/api/catalogs', async (_req, res) => {
   if (demoMode) return res.json({ customers: demoCustomers, providers: demoProviders, inventory: demoInventory.filter(item => item.stock > 0) });
-  if (ordsInventoryUrl && !poolPromise) {
+  if (ordsBaseUrl) {
     try {
       const [catalogs, providers, inventory] = await Promise.all([
-        getOrdsCatalog('catalogos/'),
-        getOrdsCatalog('proveedores/'),
+        getOrdsCatalog(ordsResources.customers),
+        getOrdsCatalog(ordsResources.providers),
         getOrdsInventory()
       ]);
       return res.json({ customers: catalogs, providers, inventory });
@@ -373,6 +380,22 @@ app.get('/api/catalogs', async (_req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.get('/api/audit', async (_req, res) => {
+  if (demoMode) return res.json([]);
+  if (ordsBaseUrl) {
+    try { return res.json(await getOrdsCatalog(ordsResources.audit)); }
+    catch (error) { return res.status(502).json({ error: error.message }); }
+  }
+  try {
+    const events = await query(`SELECT ID_AUDITORIA AS "id", TABLA_AFECTADA AS "table",
+      OPERACION AS "operation", USUARIO_BD AS "db_user",
+      TO_CHAR(FECHA_EVENTO, 'YYYY-MM-DD HH24:MI:SS') AS "timestamp",
+      VALORES_ANTERIORES AS "old_values", VALORES_NUEVOS AS "new_values"
+      FROM BITACORA_AUDITORIA ORDER BY FECHA_EVENTO DESC FETCH FIRST 50 ROWS ONLY`);
+    res.json(events);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // POST Create Product with GS Certificate
 app.post('/api/inventory', async (req, res) => {
   try {
@@ -380,8 +403,10 @@ app.post('/api/inventory', async (req, res) => {
     required(name, 'Nombre');
     if (!name.trim()) throw new Error('El nombre no puede estar vacío');
     const itemType = type || 'NEXT_GEN';
-    const productCategoryId = Number(categoryId);
-    if (!Number.isInteger(productCategoryId) || productCategoryId <= 0) throw new Error('Selecciona una categoría válida');
+    const productCategoryId = categoryId === undefined ? null : Number(categoryId);
+    if (!ordsBaseUrl && (!Number.isInteger(productCategoryId) || productCategoryId <= 0)) {
+      throw new Error('Selecciona una categoría válida');
+    }
     if (!['NEXT_GEN', 'LAPTOP', 'RETRO', 'ACCESORIO'].includes(itemType)) throw new Error('Tipo de hardware inválido');
     if (!Number.isFinite(Number(price)) || Number(price) < 0 || !Number.isInteger(Number(stock)) || Number(stock) < 0) {
       throw new Error('El precio debe ser positivo y el stock un entero no negativo');
@@ -389,11 +414,12 @@ app.post('/api/inventory', async (req, res) => {
     if (!Number.isFinite(Number(cost || 0)) || Number(cost || 0) < 0) throw new Error('El costo debe ser un número no negativo');
 
     if (demoMode) {
-      if (!demoCategories.some(item => item.id === productCategoryId)) throw new Error('La categoría seleccionada no existe');
+      const selectedCategoryId = productCategoryId || (itemType === 'LAPTOP' ? 2 : itemType === 'RETRO' ? 3 : 1);
+      if (!demoCategories.some(item => item.id === selectedCategoryId)) throw new Error('La categoría seleccionada no existe');
       const id = Math.max(...demoInventory.map(item => item.id)) + 1;
       const certificate = `#GS-${2200 + id}`;
       const newItem = {
-        id, categoryId: productCategoryId, name: name.trim(), brand: brand || 'Gaming Solutions', model: model || 'GS-CUSTOM',
+        id, categoryId: selectedCategoryId, name: name.trim(), brand: brand || 'Gaming Solutions', model: model || 'GS-CUSTOM',
         type: itemType, price: Number(price), cost: Number(cost || 0), stock: Number(stock),
         status: Number(stock) === 0 ? 'Agotado' : 'Disponible',
         certificate, hwPct: 100, aestheticPct: 95, thermalPct: 98, warrantyMonths: itemType === 'LAPTOP' ? 18 : itemType === 'RETRO' ? 6 : 12
@@ -401,9 +427,9 @@ app.post('/api/inventory', async (req, res) => {
       demoInventory.unshift(newItem);
       return res.status(201).json({ id, certificate });
     }
-    if (ordsInventoryUrl && !poolPromise) {
-      const result = await requestOrdsResource('productos/', 'POST', {
-        name, brand, model, type: itemType, categoryId: productCategoryId,
+    if (ordsBaseUrl) {
+      const result = await requestOrdsResource(ordsResourceUrl(ordsResources.products), 'POST', {
+        name, brand, model, type: itemType,
         price: Number(price), cost: cost ? Number(cost) : 0, stock: Number(stock),
         description: description || '', hw_pct: Number(hw_pct ?? 100),
         aesthetic_pct: Number(aesthetic_pct ?? 95), thermal_pct: Number(thermal_pct ?? 98)
@@ -450,7 +476,7 @@ async function updateProduct(req, res) {
       Object.assign(item, product);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}`, 'PUT', product));
+    if (ordsBaseUrl) return res.json(await requestOrdsResource(ordsResourceUrl(ordsResources.products, id), 'PUT', product));
     const result = await withConnection(connection => connection.execute(
       `UPDATE PRODUCTOS SET PRECIO_VENTA = :price, STOCK = :stock WHERE ID_PRODUCTO = :id`,
       { ...product, id }
@@ -474,7 +500,7 @@ app.delete('/api/inventory/:id', async (req, res) => {
       demoInventory.splice(index, 1);
       return res.json({ ok: true });
     }
-    if (ordsInventoryUrl) return res.json(await requestOrdsResource(`productos/${id}`, 'DELETE'));
+    if (ordsBaseUrl) return res.json(await requestOrdsResource(ordsResourceUrl(ordsResources.products, id), 'DELETE'));
     const result = await withConnection(connection => connection.execute(
       `UPDATE PRODUCTOS SET ACTIVO = 'N' WHERE ID_PRODUCTO = :id`, { id }
     ));
@@ -501,12 +527,13 @@ app.post('/api/sales', async (req, res) => {
       });
       return res.status(201).json({ id: newId });
     }
-    if (ordsInventoryUrl && !poolPromise) {
-      if (items.length !== 1) return res.status(400).json({ error: 'El endpoint ORDS actual solo permite un producto por venta.' });
+    if (ordsBaseUrl) {
+      if (items.length !== 1) return res.status(400).json({ error: 'El endpoint ORDS documentado solo permite un producto por venta.' });
       const item = items[0];
-      return res.status(201).json(await requestOrdsResource('ventas/', 'POST', {
+      return res.status(201).json(await requestOrdsResource(ordsResourceUrl(ordsResources.sales), 'POST', {
         customerId: Number(customerId), payment, total: Number(item.price) * Number(item.quantity),
-        productId: Number(item.productId), quantity: Number(item.quantity), price: Number(item.price)
+        productId: Number(item.productId), quantity: Number(item.quantity), price: Number(item.price),
+        notes: req.body.notes || ''
       }));
     }
     if (!poolPromise) return res.status(501).json({ error: 'Configura la conexión Oracle para registrar ventas.' });
@@ -542,7 +569,14 @@ app.post('/api/purchases', async (req, res) => {
     required(providerId, 'Proveedor');
     if (!Array.isArray(items) || !items.length) throw new Error('Agrega al menos un producto');
     if (demoMode) return res.status(201).json({ id: 2001 });
-    if (ordsInventoryUrl && !poolPromise) return res.status(501).json({ error: 'El script ORDS actual no publica el endpoint de compras.' });
+    if (ordsBaseUrl) {
+      if (items.length !== 1) return res.status(400).json({ error: 'El endpoint ORDS documentado solo permite un producto por compra.' });
+      const item = items[0];
+      return res.status(201).json(await requestOrdsResource(ordsResourceUrl(ordsResources.purchases), 'POST', {
+        providerId: Number(providerId), productId: Number(item.productId),
+        quantity: Number(item.quantity), cost: Number(item.cost)
+      }));
+    }
     if (!poolPromise) return res.status(501).json({ error: 'Configura la conexión Oracle para registrar compras.' });
     
     const id = await transaction(async connection => {
@@ -570,5 +604,5 @@ app.post('/api/purchases', async (req, res) => {
 
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
-const runtimeMode = demoMode ? 'demo' : ordsInventoryUrl ? 'ORDS' : hasOracleCredentials ? 'Oracle' : 'sin base de datos';
+const runtimeMode = demoMode ? 'demo' : ordsBaseUrl ? 'ORDS' : hasOracleCredentials ? 'Oracle' : 'sin base de datos';
 app.listen(port, () => console.log(`Gaming Solutions listo en http://localhost:${port} (${runtimeMode})`));
