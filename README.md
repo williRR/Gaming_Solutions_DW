@@ -12,41 +12,10 @@ En Oracle APEX abre **SQL Workshop > SQL Scripts > Upload** y ejecuta los script
 2. **`sql/02_auditoria.sql`**: Crea la tabla `BITACORA_AUDITORIA` y los triggers PL/SQL de seguimiento automatizado en JSON.
 3. **`sql/03_seed.sql`**: Inserta datos de prueba de productos (PS5, Xbox Series X, Switch OLED, Laptops ROG/MSI, SNES, GBC, Genesis) con sus certificaciones `#GS-2201` a `#GS-2208`, clientes, proveedores y ventas.
 4. **`sql/04_ords_rest_endpoints.sql`**: Publica automáticamente los Endpoints REST en Oracle ORDS.
-5. **Opcional: `sql/05_ords_crud_extensions.sql`**: agrega rutas adicionales para categorías, actualización/baja lógica de productos y proveedores. No es necesario para el contrato listado en la sección 3; ejecútalo solo si el equipo decide publicar también esas extensiones.
 
 ---
 
-## 2. CRUD de productos y categorías
-
-El panel usa rutas locales de Express. Para probar los formularios sin escribir en Oracle:
-
-```powershell
-$env:DEMO_MODE = "true"
-npm start
-```
-
-Abre `http://localhost:3000`. En demo, altas, ediciones y bajas solo viven en memoria y se pierden al detener el servidor.
-
-Con `DEMO_MODE=false`, Express reenvía a ORDS los métodos documentados en la sección 3. El recurso de categorías no forma parte de ese contrato: el CRUD de categorías queda disponible en demo o al conectarse directamente a Oracle, pero se oculta en modo ORDS.
-
-| Recurso ORDS | Operaciones documentadas |
-| --- | --- |
-| `productos/` | `GET`, `POST` |
-| `productos/:id` | `PUT`, `DELETE` |
-| `dashboard/` | `GET` |
-| `clientes/` | `GET` |
-| `proveedores/` | `GET` |
-| `ventas/` | `POST` |
-| `compras/` | `POST` |
-| `auditoria/` | `GET` |
-
-Las actualizaciones de producto solo envían `price` y `stock`. La creación usa el payload del README (`name`, `brand`, `model`, `type`, `price`, `cost`, `stock`, `description`, `hw_pct`, `aesthetic_pct`, `thermal_pct`); ORDS determina la categoría a partir del tipo. Ventas y compras se traducen al payload plano con un producto por operación.
-
-Configura `ORDS_BASE_URL` y las variables `ORDS_*_RESOURCE` en `.env`. Si el equipo decide usar rutas adicionales, revisa también `sql/05_ords_crud_extensions.sql`. Consulta [GUIA_INTEGRACION_ORDS.md](GUIA_INTEGRACION_ORDS.md) para instrucciones de configuración y para saber dónde cambiar las rutas. El script SQL debe ejecutarse y comprobarse en el workspace Oracle del equipo: no se valida automáticamente desde Node.js.
-
----
-
-## 3. Catálogo Completo de Endpoints REST (ORDS)
+## 2. Catálogo Completo de Endpoints REST (ORDS)
 
 A continuación se detalla la lista de todos los Endpoints REST requeridos para la operación del panel administrativo.
 
@@ -302,11 +271,8 @@ Para conectar tu servidor Node.js local con los Endpoints ORDS en Oracle Cloud:
    ```env
    PORT=3000
    DEMO_MODE=false
-   ORDS_BASE_URL=https://<tu-instancia-apex>.oraclecloud.com/ords/<tu_esquema>/gaming/
-   ORDS_PRODUCTS_RESOURCE=productos/
-   ORDS_CUSTOMERS_RESOURCE=clientes/
+   ORDS_INVENTORY_URL=https://<tu-instancia-apex>.oraclecloud.com/ords/<tu_esquema>/gaming/productos/
    ```
-   Si el endpoint real de clientes está publicado como `catalogos/`, configura `ORDS_CUSTOMERS_RESOURCE=catalogos/`.
 2. Inicia el servidor:
    ```bash
    npm start
