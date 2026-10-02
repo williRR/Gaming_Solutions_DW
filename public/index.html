@@ -12,10 +12,11 @@
     <div class="brand"><span class="brand-mark">GS</span><div><strong>Gaming</strong><small>Solutions</small></div></div>
     <nav>
       <a class="active" href="#dashboard"><span>▦</span>Resumen</a>
-      <a href="#inventory"><span>◈</span>Inventario & #GS</a>
-      <a href="#sales"><span>↗</span>Ventas Efectivo</a>
-      <a href="#purchases"><span>↙</span>Compras</a>
-      <a href="#audit"><span>◌</span>Auditoría BD</a>
+      <a href="/inventory.html"><span>◈</span>Inventario & #GS</a>
+      <a href="/catalog.html"><span>▣</span>Catálogo visual</a>
+      <a href="/clients.html"><span>◎</span>Clientes</a>
+      <a href="/operations.html"><span>↗</span>Ventas y compras</a>
+      <a href="/audit.html"><span>◌</span>Auditoría BD</a>
     </nav>
     <div class="sidebar-foot"><span class="pulse"></span><span id="sidebarStatus">Apex / ORDS Activo</span></div>
   </aside>
@@ -26,7 +27,7 @@
       <div class="header-actions"><button class="icon-button" title="Actualizar datos" id="refresh">↻</button><div class="avatar">GS</div></div>
     </header>
 
-    <section class="hero">
+    <section class="hero" id="dashboard">
       <div>
         <p class="eyebrow">EQUIPO GAMER REAL · REVISADO PIEZA POR PIEZA</p>
         <h2>Transparencia total<br><em>Garantía por escrito.</em></h2>
@@ -42,7 +43,7 @@
     </section>
 
     <section class="content-grid">
-      <article class="panel inventory-panel">
+      <article class="panel inventory-panel" id="inventory">
         <div class="panel-heading">
           <div><p class="eyebrow">INVENTARIO & INSPECCIÓN TÉCNICA</p><h3>Productos & Certificados #GS</h3></div>
           <button class="text-button" data-open="inventoryModal">Registrar Nuevo <span>→</span></button>
@@ -67,7 +68,7 @@
         </div>
       </article>
 
-      <article class="panel sales-panel">
+      <article class="panel sales-panel" id="sales">
         <div class="panel-heading">
           <div><p class="eyebrow">ACTIVIDAD DE VENTAS</p><h3>Últimas Operaciones</h3></div>
           <button class="text-button" data-open="saleModal">Nueva Venta <span>→</span></button>
@@ -76,7 +77,44 @@
       </article>
     </section>
 
-    <section class="quick-actions">
+    <section class="module-grid" id="catalog">
+      <article class="panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CATÁLOGO MULTIMEDIA</p><h3>Productos destacados</h3></div>
+          <button class="text-button" id="catalogRefresh" type="button">Actualizar <span>↻</span></button>
+        </div>
+        <div class="product-gallery" id="productGallery"><div class="loading">Cargando catálogo visual...</div></div>
+      </article>
+      <article class="panel" id="categories">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CLASIFICACIÓN</p><h3>Categorías</h3></div>
+        </div>
+        <div class="category-list" id="categoryList"><div class="loading">Cargando categorías...</div></div>
+      </article>
+    </section>
+
+    <section class="module-grid" id="clients">
+      <article class="panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CRM OPERATIVO</p><h3>Clientes registrados</h3></div>
+          <button class="text-button" data-open="clientModal" type="button">Nuevo cliente <span>→</span></button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Cliente</th><th>Contacto</th><th>Dirección</th></tr></thead>
+            <tbody id="clientRows"><tr><td colspan="3" class="loading">Cargando clientes...</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="panel" id="audit">
+        <div class="panel-heading">
+          <div><p class="eyebrow">TRAZABILIDAD</p><h3>Auditoría de cambios</h3></div>
+          <button class="text-button" id="auditRefresh" type="button">Actualizar <span>↻</span></button>
+        </div>
+        <div class="audit-list" id="auditList"><div class="loading">Cargando bitácora...</div></div>
+      </article>
+    </section>
+
+    <section class="quick-actions" id="purchases">
       <div><p class="eyebrow">ACCIONES RÁPIDAS</p><h3>Operación del Negocio</h3></div>
       <div class="action-buttons">
         <button data-open="inventoryModal"><span>＋</span>Registrar Hardware + Certificado</button>
@@ -101,13 +139,48 @@
               <option value="RETRO">Retro Restoration (6M Garantía)</option>
             </select>
           </label>
-          <label>Precio de Venta ($)<input name="price" type="number" min="0" step="0.01" required></label>
-          <label>Precio de Compra ($)<input name="cost" type="number" min="0" step="0.01"></label>
+          <label>Precio de Venta (Q)<input name="price" type="number" min="0" step="0.01" required></label>
+          <label>Precio de Compra (Q)<input name="cost" type="number" min="0" step="0.01"></label>
           <label>Stock Inicial<input name="stock" type="number" min="0" required></label>
         </div>
         <button class="submit" type="submit">Guardar Producto & Generar Certificado #GS</button>
         <p class="form-message"></p>
       </form>
+    </div>
+
+    <div class="modal" id="productDetailsModal">
+      <section class="modal-card">
+        <button type="button" class="close" data-close aria-label="Cerrar">×</button>
+        <p class="eyebrow">GESTION DE PRODUCTO</p>
+        <h3 id="productDetailsTitle">Editar producto</h3>
+        <form data-form="product-update">
+          <input name="productId" type="hidden">
+          <div class="form-grid">
+            <label>Nombre<input name="name" required></label>
+            <label>Precio de Venta (Q)<input name="price" type="number" min="0" step="0.01" required></label>
+            <label>Precio de Compra (Q)<input name="cost" type="number" min="0" step="0.01" required></label>
+            <label>Stock<input name="stock" type="number" min="0" step="1" required></label>
+          </div>
+          <button class="submit" type="submit">Guardar cambios</button>
+          <p class="form-message"></p>
+        </form>
+        <form data-form="certificate-update">
+          <p class="eyebrow">CERTIFICADO #GS</p>
+          <input name="productId" type="hidden">
+          <div class="form-grid">
+            <label>Hardware original (%)<input name="hwPct" type="number" min="0" max="100" step="1" required></label>
+            <label>Estado estetico (%)<input name="aestheticPct" type="number" min="0" max="100" step="1" required></label>
+            <label>Rendimiento termico (%)<input name="thermalPct" type="number" min="0" max="100" step="1" required></label>
+            <label>Garantia (meses)<input name="warrantyMonths" type="number" min="0" step="1" required></label>
+            <label>Puntos revisados<input name="pointsReviewed" type="number" min="0" step="1"></label>
+            <label>Tecnico responsable<input name="technician" type="text"></label>
+            <label>Detalle de inspeccion<input name="inspectionDetail" type="text"></label>
+          </div>
+          <button class="submit" type="submit">Actualizar certificado</button>
+          <p class="form-message"></p>
+        </form>
+        <button class="submit danger-button" id="deactivateProduct" type="button">Desactivar producto (baja lógica)</button>
+      </section>
     </div>
 
     <div class="modal" id="saleModal">
@@ -141,9 +214,26 @@
           <label>Proveedor<select name="providerId" id="purchaseProvider" required></select></label>
           <label>Producto<select name="productId" id="purchaseProduct" required></select></label>
           <label>Cantidad<input name="quantity" type="number" min="1" value="1" required></label>
-          <label>Costo Unitario ($)<input name="cost" type="number" min="0" step="0.01" required></label>
+          <label>Costo Unitario (Q)<input name="cost" type="number" min="0" step="0.01" required></label>
+          <label>Notas<input name="notes" type="text" maxlength="500"></label>
         </div>
         <button class="submit" type="submit">Confirmar Reabastecimiento</button>
+        <p class="form-message"></p>
+      </form>
+    </div>
+
+    <div class="modal" id="clientModal">
+      <form class="modal-card" data-form="client">
+        <button type="button" class="close" data-close>×</button>
+        <p class="eyebrow">CRM OPERATIVO</p>
+        <h3>Registrar cliente</h3>
+        <div class="form-grid">
+          <label>Nombre completo<input name="name" maxlength="150" required></label>
+          <label>Teléfono<input name="phone" maxlength="30"></label>
+          <label>Correo electrónico<input name="email" type="email" maxlength="100"></label>
+          <label>Dirección<input name="address" maxlength="250"></label>
+        </div>
+        <button class="submit" type="submit">Guardar cliente</button>
         <p class="form-message"></p>
       </form>
     </div>
