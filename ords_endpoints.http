@@ -1,0 +1,180 @@
+# ==============================================================================
+# GAMING SOLUTIONS - PRUEBAS DIRECTAS DE ENDPOINTS ORDS
+# Extensión recomendada: REST Client (Huachao Mao) para VS Code
+#
+# Este archivo prueba los endpoints publicados por:
+#   sql/04_ords_rest_endpoints.sql
+#   sql/05_ords_rest_endpoints.sql
+#   sql/06_ords_post_actions.sql
+#
+# Ejecuta primero los GET de consulta y usa IDs existentes en tu esquema para
+# las operaciones que modifican datos.
+# ==============================================================================
+
+@ordsBaseUrl = https://oracleapex.com/ords/willi_gs/gaming
+@userAgent = Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+@productoId = 61
+@clienteId = 1
+@proveedorId = 1
+@ventaId = 1
+
+
+# ==============================================================================
+# 1. ENDPOINTS EXISTENTES - sql/04_ords_rest_endpoints.sql
+# ==============================================================================
+
+### 1.1 Listar productos activos con certificado GS
+GET {{ordsBaseUrl}}/productos/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 1.2 Crear producto y certificado GS
+POST {{ordsBaseUrl}}/productos/
+Content-Type: application/json
+User-Agent: {{userAgent}}
+
+{
+  "name": "PlayStation 5 Pro 2TB",
+  "brand": "Sony",
+  "model": "CFI-7000",
+  "type": "NEXT_GEN",
+  "price": 699.99,
+  "cost": 580.00,
+  "stock": 4,
+  "description": "Consola verificada por Gaming Solutions",
+  "hw_pct": 100,
+  "aesthetic_pct": 98,
+  "thermal_pct": 99
+}
+
+### 1.3 Consultar métricas del dashboard
+GET {{ordsBaseUrl}}/dashboard/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 1.4 Consultar catálogo base de clientes
+# El endpoint original /catalogos/ devuelve clientes con id y name.
+GET {{ordsBaseUrl}}/catalogos/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 1.5 Registrar venta directa
+# Este endpoint original recibe una sola línea de venta.
+POST {{ordsBaseUrl}}/ventas/
+Content-Type: application/json
+User-Agent: {{userAgent}}
+
+{
+  "customerId": {{clienteId}},
+  "payment": "TRANSFERENCIA",
+  "total": 349.99,
+  "productId": 2,
+  "quantity": 1,
+  "price": 349.99,
+  "notes": "Venta procesada mediante REST Client"
+}
+
+
+# ==============================================================================
+# 2. ENDPOINTS NUEVOS - sql/05_ords_rest_endpoints.sql
+# ==============================================================================
+
+### 2.1 Listar proveedores
+GET {{ordsBaseUrl}}/proveedores/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 2.2 Listar categorías
+GET {{ordsBaseUrl}}/categorias/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 2.3 Listar clientes con datos de contacto
+GET {{ordsBaseUrl}}/clientes/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 2.4 Crear cliente
+POST {{ordsBaseUrl}}/clientes/
+Content-Type: application/json
+User-Agent: {{userAgent}}
+
+{
+  "name": "Luis Vargas",
+  "phone": "+51 999 888 777",
+  "email": "luis.vargas@example.com",
+  "address": "Av. Principal 123, Lima"
+}
+
+### 2.5 Consultar detalle de un producto
+GET {{ordsBaseUrl}}/productos/{{productoId}}/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 2.6 Actualizar producto mediante POST
+POST {{ordsBaseUrl}}/productos/{{productoId}}/actualizar/
+Content-Type: application/json
+User-Agent: {{userAgent}}
+
+{
+  "name": "Producto actualizado desde ORDS",
+  "price": 489.99,
+  "stock": 10,
+  "cost": 400.00,
+  "description": "Datos actualizados mediante POST",
+  "providerId": {{proveedorId}}
+}
+
+### 2.7 Desactivar producto mediante POST (baja lógica)
+# Cambia ACTIVO a N; no elimina el registro físicamente.
+POST {{ordsBaseUrl}}/productos/{{productoId}}/desactivar/
+Content-Type: application/json
+Accept: application/json
+User-Agent: {{userAgent}}
+
+{}
+
+### 2.8 Actualizar certificado GS mediante POST
+POST {{ordsBaseUrl}}/productos/{{productoId}}/certificado/actualizar/
+Content-Type: application/json
+Accept: application/json
+User-Agent: {{userAgent}}
+
+{
+  "hwPct": 100,
+  "aestheticPct": 96,
+  "thermalPct": 98,
+  "pointsReviewed": 40,
+  "warrantyMonths": 12,
+  "inspectionDetail": "Prueba térmica y revisión visual aprobadas",
+  "technician": "Laboratorio Gaming Solutions"
+}
+
+### 2.9 Registrar compra y aumentar stock
+# Este endpoint recibe una sola línea de compra.
+POST {{ordsBaseUrl}}/compras/
+Content-Type: application/json
+User-Agent: {{userAgent}}
+
+{
+  "providerId": {{proveedorId}},
+  "productId": {{productoId}},
+  "quantity": 2,
+  "cost": 290.00,
+  "notes": "Reabastecimiento registrado mediante ORDS"
+}
+
+### 2.10 Listar ventas registradas
+GET {{ordsBaseUrl}}/ventas/consulta/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 2.11 Consultar detalle de una venta
+GET {{ordsBaseUrl}}/ventas/consulta/{{ventaId}}/
+Accept: application/json
+User-Agent: {{userAgent}}
+
+### 2.12 Consultar auditoría
+GET {{ordsBaseUrl}}/auditoria/
+Accept: application/json
+User-Agent: {{userAgent}}
