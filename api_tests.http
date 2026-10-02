@@ -1,0 +1,147 @@
+# ==============================================================================
+# GAMING SOLUTIONS - SUITE DE PRUEBAS DE API PARA REST CLIENT (VS CODE)
+# Extensión: REST Client (Huachao Mao)
+# Para ejecutar una petición, haz clic en "Send Request" arriba de cada bloque.
+# ==============================================================================
+
+### Variables Globales de Entorno
+@baseUrl = http://localhost:3000
+@ordsBaseUrl = https://oracleapex.com/ords/willi_gs/gaming
+
+
+# ==============================================================================
+# 1. SERVIDOR NODE.JS LOCAL (http://localhost:3000)
+# ==============================================================================
+
+### 1.1 Estado de Salud de la API
+GET {{baseUrl}}/api/health
+Accept: application/json
+
+### 1.2 Métricas Principales del Dashboard
+GET {{baseUrl}}/api/dashboard
+Accept: application/json
+
+### 1.3 Consultar Inventario Completo
+GET {{baseUrl}}/api/inventory
+Accept: application/json
+
+### 1.4 Consultar Catálogos Auxiliares (Clientes, Proveedores y Productos)
+GET {{baseUrl}}/api/catalogs
+Accept: application/json
+
+### 1.5 Crear Producto con Certificado #GS (Next-Gen, Laptop o Retro)
+POST {{baseUrl}}/api/inventory
+Content-Type: application/json
+
+{
+  "name": "PlayStation 5 Pro 2TB",
+  "brand": "Sony",
+  "model": "CFI-7000",
+  "type": "NEXT_GEN",
+  "price": 699.99,
+  "cost": 580.00,
+  "stock": 4
+}
+
+### 1.6 Crear Laptop Gamer con Pruebas de Estrés
+POST {{baseUrl}}/api/inventory
+Content-Type: application/json
+
+{
+  "name": "Laptop Lenovo Legion Pro 5",
+  "brand": "Lenovo",
+  "model": "16IRX8",
+  "type": "LAPTOP",
+  "price": 1399.99,
+  "cost": 1100.00,
+  "stock": 3
+}
+
+### 1.7 Actualizar Precio y Stock de un Producto (ej. ID 1)
+PATCH {{baseUrl}}/api/inventory/1
+Content-Type: application/json
+
+{
+  "price": 489.99,
+  "stock": 10
+}
+
+### 1.8 Registrar Venta en Efectivo / Transferencia
+POST {{baseUrl}}/api/sales
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "payment": "EFECTIVO",
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1,
+      "price": 499.99
+    }
+  ]
+}
+
+### 1.9 Registrar Compra a Proveedor (Reabastecimiento)
+POST {{baseUrl}}/api/purchases
+Content-Type: application/json
+
+{
+  "providerId": 1,
+  "items": [
+    {
+      "productId": 2,
+      "quantity": 3,
+      "cost": 290.00
+    }
+  ]
+}
+
+
+# ==============================================================================
+# 2. ORACLE APEX DIRECTO (ORDS REST Data Services)
+# ==============================================================================
+
+### 2.1 ORDS: Consultar Inventario Certificado #GS en Oracle Cloud
+GET {{ordsBaseUrl}}/productos/
+Accept: application/json
+
+### 2.2 ORDS: Crear Producto e Inspección Técnica en Oracle APEX
+POST {{ordsBaseUrl}}/productos/
+Content-Type: application/json
+
+{
+  "name": "Super Nintendo SNES Recapacitada GS",
+  "brand": "Nintendo",
+  "model": "SNS-001",
+  "type": "RETRO",
+  "price": 189.99,
+  "cost": 100.00,
+  "stock": 2,
+  "description": "Recapacitado con SMD Nichicon y blanqueado UV",
+  "hw_pct": 100,
+  "aesthetic_pct": 94,
+  "thermal_pct": 98
+}
+
+### 2.3 ORDS: Consultar Métricas Consolidadas del Dashboard
+GET {{ordsBaseUrl}}/dashboard/
+Accept: application/json
+
+### 2.4 ORDS: Consultar Lista de Clientes
+GET {{ordsBaseUrl}}/catalogos/
+Accept: application/json
+
+### 2.5 ORDS: Registrar Venta Directa en Oracle APEX
+POST {{ordsBaseUrl}}/ventas/
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "payment": "TRANSFERENCIA",
+  "total": 349.99,
+  "productId": 2,
+  "quantity": 1,
+  "price": 349.99,
+  "notes": "Venta procesada mediante REST Client"
+}
