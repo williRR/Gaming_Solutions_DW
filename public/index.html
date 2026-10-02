@@ -110,6 +110,41 @@
       </form>
     </div>
 
+    <div class="modal" id="productDetailsModal">
+      <section class="modal-card">
+        <button type="button" class="close" data-close aria-label="Cerrar">×</button>
+        <p class="eyebrow">GESTION DE PRODUCTO</p>
+        <h3 id="productDetailsTitle">Editar producto</h3>
+        <form data-form="product-update">
+          <input name="productId" type="hidden">
+          <div class="form-grid">
+            <label>Nombre<input name="name" required></label>
+            <label>Precio de Venta ($)<input name="price" type="number" min="0" step="0.01" required></label>
+            <label>Precio de Compra ($)<input name="cost" type="number" min="0" step="0.01" required></label>
+            <label>Stock<input name="stock" type="number" min="0" step="1" required></label>
+          </div>
+          <button class="submit" type="submit">Guardar cambios</button>
+          <p class="form-message"></p>
+        </form>
+        <form data-form="certificate-update">
+          <p class="eyebrow">CERTIFICADO #GS</p>
+          <input name="productId" type="hidden">
+          <div class="form-grid">
+            <label>Hardware original (%)<input name="hwPct" type="number" min="0" max="100" step="1" required></label>
+            <label>Estado estetico (%)<input name="aestheticPct" type="number" min="0" max="100" step="1" required></label>
+            <label>Rendimiento termico (%)<input name="thermalPct" type="number" min="0" max="100" step="1" required></label>
+            <label>Garantia (meses)<input name="warrantyMonths" type="number" min="0" step="1" required></label>
+            <label>Puntos revisados<input name="pointsReviewed" type="number" min="0" step="1"></label>
+            <label>Tecnico responsable<input name="technician" type="text"></label>
+            <label>Detalle de inspeccion<input name="inspectionDetail" type="text"></label>
+          </div>
+          <button class="submit" type="submit">Actualizar certificado</button>
+          <p class="form-message"></p>
+        </form>
+        <button class="submit" id="deactivateProduct" type="button">Desactivar producto</button>
+      </section>
+    </div>
+
     <div class="modal" id="saleModal">
       <form class="modal-card" data-form="sale">
         <button type="button" class="close" data-close>×</button>
@@ -142,6 +177,7 @@
           <label>Producto<select name="productId" id="purchaseProduct" required></select></label>
           <label>Cantidad<input name="quantity" type="number" min="1" value="1" required></label>
           <label>Costo Unitario ($)<input name="cost" type="number" min="0" step="0.01" required></label>
+          <label>Notas<input name="notes" type="text" maxlength="500"></label>
         </div>
         <button class="submit" type="submit">Confirmar Reabastecimiento</button>
         <p class="form-message"></p>

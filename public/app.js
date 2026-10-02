@@ -32,7 +32,11 @@ function renderInventory(items) {
     </tr>`).join('');
 }
 
-function renderSales(items) {
+function renderSales(items, mode) {
+  if (!items.length) {
+    document.querySelector('#salesList').innerHTML = `<div class="loading">${mode === 'ords' ? 'Ventas no disponibles desde ORDS' : 'No hay ventas para mostrar'}</div>`;
+    return;
+  }
   document.querySelector('#salesList').innerHTML = items.map(sale => `
     <div class="sale">
       <div class="sale-info">
@@ -48,22 +52,26 @@ function renderSales(items) {
 
 async function loadDashboard() {
   const response = await fetch('/api/dashboard');
-  if (!response.ok) throw new Error('No se pudo cargar el panel');
   const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `Error HTTP ${response.status} al cargar el panel`);
   document.querySelector('#metricInventory').textContent = data.metrics.inventory;
-  document.querySelector('#metricSales').textContent = money.format(data.metrics.monthlySales);
+  document.querySelector('#metricSales').textContent = data.metrics.monthlySales === null ? 'N/D' : money.format(data.metrics.monthlySales);
   document.querySelector('#metricLowStock').textContent = data.metrics.lowStock;
-  document.querySelector('#metricCustomers').textContent = data.metrics.customers;
+  document.querySelector('#metricCustomers').textContent = data.metrics.customers === null ? 'N/D' : data.metrics.customers;
   document.querySelector('#connectionMode').textContent = data.mode === 'demo' ? 'DEMO' : data.mode === 'ords' ? 'ORDS APEX' : 'ORACLE DB';
   renderInventory(data.inventory);
-  renderSales(data.sales);
+  renderSales(data.sales, data.mode);
 }
 
 async function loadCatalogs() {
   const response = await fetch('/api/catalogs');
-  catalogs = await response.json();
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || `Error HTTP ${response.status} al cargar catálogos`);
+  catalogs = result;
   const fill = (selector, items, label = item => item.name) => {
-    document.querySelector(selector).innerHTML = items.map(item => `<option value="${item.id}">${label(item)}</option>`).join('');
+    document.querySelector(selector).innerHTML = items.length
+      ? items.map(item => `<option value="${item.id}">${label(item)}</option>`).join('')
+      : '<option value="">Sin registros disponibles</option>';
   };
   fill('#saleCustomer', catalogs.customers);
   fill('#purchaseProvider', catalogs.providers);
@@ -73,12 +81,48 @@ async function loadCatalogs() {
 
 function openModal(id) {
   document.querySelector(`#${id}`).classList.add('open');
-  if (id !== 'inventoryModal') loadCatalogs();
+  if (id !== 'inventoryModal') {
+    loadCatalogs().catch(error => {
+      document.querySelector('#sidebarStatus').textContent = error.message;
+    });
+  }
 }
 
 function closeModal(modal) {
   modal.classList.remove('open');
-  modal.querySelector('.form-message').textContent = '';
+  modal.querySelectorAll('.form-message').forEach(message => {
+    message.textContent = '';
+    message.className = 'form-message';
+  });
+}
+
+async function openProductDetails(productId) {
+  try {
+    const response = await fetch(`/api/inventory/${productId}`);
+    const product = await response.json();
+    if (!response.ok) throw new Error(product.error || 'No se pudo consultar el producto');
+
+    document.querySelector('#productDetailsTitle').textContent = `${product.name} · ${product.certificate || ''}`;
+    const updateForm = document.querySelector('[data-form="product-update"]');
+    updateForm.elements.productId.value = product.id;
+    updateForm.elements.name.value = product.name || '';
+    updateForm.elements.price.value = product.price ?? '';
+    updateForm.elements.cost.value = product.cost ?? 0;
+    updateForm.elements.stock.value = product.stock ?? 0;
+
+    const certificateForm = document.querySelector('[data-form="certificate-update"]');
+    certificateForm.elements.productId.value = product.id;
+    certificateForm.elements.hwPct.value = product.hwPct ?? '';
+    certificateForm.elements.aestheticPct.value = product.aestheticPct ?? '';
+    certificateForm.elements.thermalPct.value = product.thermalPct ?? '';
+    certificateForm.elements.warrantyMonths.value = product.warrantyMonths ?? '';
+    certificateForm.elements.pointsReviewed.value = product.pointsReviewed ?? '';
+    certificateForm.elements.technician.value = product.technician || '';
+    certificateForm.elements.inspectionDetail.value = product.inspectionDetail || '';
+    document.querySelector('#productDetailsModal').classList.add('open');
+  } catch (error) {
+    document.querySelector('#sidebarStatus').textContent = error.message;
+  }
 }
 
 async function submitForm(event) {
@@ -89,9 +133,29 @@ async function submitForm(event) {
   try {
     let endpoint;
     let payload;
+    let method = 'POST';
     if (form.dataset.form === 'inventory') {
+      // Express forwards this local POST to the ORDS /productos/ endpoint.
       endpoint = '/api/inventory';
       payload = { ...data, price: Number(data.price), cost: data.cost ? Number(data.cost) : null, stock: Number(data.stock) };
+    }
+    if (form.dataset.form === 'product-update') {
+      endpoint = `/api/inventory/${data.productId}`;
+      method = 'PATCH';
+      payload = { name: data.name, price: Number(data.price), cost: Number(data.cost), stock: Number(data.stock) };
+    }
+    if (form.dataset.form === 'certificate-update') {
+      endpoint = `/api/inventory/${data.productId}/certificate`;
+      method = 'PATCH';
+      payload = {
+        hwPct: Number(data.hwPct),
+        aestheticPct: Number(data.aestheticPct),
+        thermalPct: Number(data.thermalPct),
+        warrantyMonths: Number(data.warrantyMonths)
+      };
+      for (const field of ['pointsReviewed', 'technician', 'inspectionDetail']) {
+        if (data[field] !== '') payload[field] = field === 'pointsReviewed' ? Number(data[field]) : data[field];
+      }
     }
     if (form.dataset.form === 'sale') {
       endpoint = '/api/sales';
@@ -105,11 +169,12 @@ async function submitForm(event) {
       endpoint = '/api/purchases';
       payload = {
         providerId: Number(data.providerId),
-        items: [{ productId: Number(data.productId), quantity: Number(data.quantity), cost: Number(data.cost) }]
+        items: [{ productId: Number(data.productId), quantity: Number(data.quantity), cost: Number(data.cost) }],
+        notes: data.notes.trim() || null
       };
     }
     const response = await fetch(endpoint, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
@@ -130,15 +195,36 @@ async function submitForm(event) {
 async function boot() {
   try {
     await loadDashboard();
-    try { await loadCatalogs(); } catch (_error) { catalogs = { customers: [], providers: [], inventory: [] }; }
+    try { await loadCatalogs(); } catch (error) {
+      catalogs = { customers: [], providers: [], inventory: [] };
+      document.querySelector('#sidebarStatus').textContent = error.message;
+    }
   } catch (_error) {
+    document.querySelector('#sidebarStatus').textContent = _error.message;
     document.querySelector('#connectionMode').textContent = 'SIN CONEXIÓN';
-    document.querySelector('#inventoryRows').innerHTML = '<tr><td colspan="7" class="loading">No se pudo cargar el inventario desde ORDS</td></tr>';
+    document.querySelector('#inventoryRows').innerHTML = '<tr><td colspan="7" class="loading">No se pudo cargar el inventario; revisa el error de conexión</td></tr>';
     document.querySelector('#salesList').innerHTML = '<div class="loading">API no disponible</div>';
   }
 }
 
 document.querySelector('#refresh').addEventListener('click', boot);
+document.querySelector('#inventoryRows').addEventListener('click', event => {
+  const button = event.target.closest('[data-edit]');
+  if (button) openProductDetails(button.dataset.edit);
+});
+document.querySelector('#deactivateProduct').addEventListener('click', async () => {
+  const productId = document.querySelector('[data-form="product-update"]').elements.productId.value;
+  if (!productId || !window.confirm('Se desactivara este producto. Deseas continuar?')) return;
+  try {
+    const response = await fetch(`/api/inventory/${productId}`, { method: 'DELETE' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'No se pudo desactivar el producto');
+    closeModal(document.querySelector('#productDetailsModal'));
+    await loadDashboard();
+  } catch (error) {
+    document.querySelector('#sidebarStatus').textContent = error.message;
+  }
+});
 document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => openModal(button.dataset.open)));
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => closeModal(button.closest('.modal'))));
 document.querySelectorAll('[data-form]').forEach(form => form.addEventListener('submit', submitForm));
