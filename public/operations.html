@@ -1,1 +1,51 @@
-<!doctype html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Operaciones | Gaming Solutions</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/forms.css"></head><body data-module="operations"><aside class="sidebar"><div class="brand"><span class="brand-mark">GS</span><div><strong>Gaming</strong><small>Solutions</small></div></div><nav><a href="/"><span>▦</span>Resumen</a><a href="/inventory.html"><span>◈</span>Inventario & #GS</a><a href="/catalog.html"><span>▣</span>Catálogo visual</a><a href="/clients.html"><span>◎</span>Clientes</a><a class="active" href="/operations.html"><span>↗</span>Ventas y compras</a><a href="/audit.html"><span>◌</span>Auditoría BD</a></nav><div class="sidebar-foot"><span class="pulse"></span><span id="sidebarStatus">Conectando...</span></div></aside><main><header><div><p class="eyebrow">MÓDULO OPERATIVO</p><h1>Ventas y compras</h1></div><div class="avatar">GS</div></header><section class="page-intro"><p>Las ventas y compras se registran desde el dashboard mediante las acciones rápidas.</p><a class="submit compact" href="/">Ir al dashboard</a></section><article class="panel"><div class="panel-heading"><div><p class="eyebrow">ÚLTIMAS OPERACIONES</p><h3>Ventas registradas</h3></div></div><div id="salesList" class="sales-list"><div class="loading">Cargando ventas...</div></div></article><footer><span>GAMING SOLUTIONS © 2026</span><a href="/">Volver al dashboard</a></footer></main><script src="/module.js"></script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operaciones | Gaming Solutions</title>
+  <link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/forms.css">
+</head>
+<body data-module="operations">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">GS</span><div><strong>Gaming</strong><small>Solutions</small></div></div>
+    <nav><a href="/"><span>▦</span>Resumen</a><a href="/inventory.html"><span>◈</span>Inventario & #GS</a><a href="/catalog.html"><span>▣</span>Catálogo visual</a><a href="/clients.html"><span>◎</span>Clientes</a><a class="active" href="/operations.html"><span>↗</span>Ventas y compras</a><a href="/audit.html"><span>◌</span>Auditoría BD</a></nav>
+    <div class="sidebar-foot"><span class="pulse"></span><span id="sidebarStatus">Conectando...</span></div>
+  </aside>
+  <main>
+    <header><div><p class="eyebrow">MÓDULO OPERATIVO / NEGOCIO</p><h1>Ventas y compras</h1></div><div class="avatar">GS</div></header>
+    <section class="page-intro"><div><p class="eyebrow">CENTRO DE OPERACIONES</p><p>Registra ventas, controla reabastecimientos y consulta la actividad comercial desde un solo lugar.</p></div></section>
+    <section class="operations-grid">
+      <article class="panel operation-card">
+        <div class="panel-heading"><div><p class="eyebrow">SALIDA DE INVENTARIO</p><h3>Registrar venta</h3></div><span class="operation-icon sale-icon">↗</span></div>
+        <form data-form="sale">
+          <div class="form-grid">
+            <label>Cliente<select name="customerId" id="saleCustomer" required><option value="">Cargando clientes...</option></select></label>
+            <label>Método de pago<select name="payment"><option value="EFECTIVO">EFECTIVO</option><option value="TRANSFERENCIA">TRANSFERENCIA</option><option value="TARJETA">TARJETA</option></select></label>
+            <label>Producto certificado<select name="productId" id="saleProduct" required><option value="">Cargando inventario...</option></select></label>
+            <label>Cantidad<input name="quantity" type="number" min="1" value="1" required></label>
+          </div>
+          <p class="operation-total">Total estimado <strong id="saleTotal">Q 0.00</strong></p>
+          <button class="submit" type="submit">Confirmar venta</button><p class="form-message"></p>
+        </form>
+      </article>
+      <article class="panel operation-card">
+        <div class="panel-heading"><div><p class="eyebrow">ENTRADA DE INVENTARIO</p><h3>Registrar compra</h3></div><span class="operation-icon purchase-icon">↙</span></div>
+        <form data-form="purchase">
+          <div class="form-grid">
+            <label>Proveedor<select name="providerId" id="purchaseProvider" required><option value="">Cargando proveedores...</option></select></label>
+            <label>Producto<select name="productId" id="purchaseProduct" required><option value="">Cargando inventario...</option></select></label>
+            <label>Cantidad<input name="quantity" type="number" min="1" value="1" required></label>
+            <label>Costo unitario (Q)<input name="cost" type="number" min="0" step=".01" required></label>
+            <label class="full-field">Notas<input name="notes" maxlength="500"></label>
+          </div>
+          <p class="operation-total">Total de compra <strong id="purchaseTotal">Q 0.00</strong></p>
+          <button class="submit" type="submit">Confirmar compra</button><p class="form-message"></p>
+        </form>
+      </article>
+    </section>
+    <article class="panel operations-history"><div class="panel-heading"><div><p class="eyebrow">TRAZABILIDAD COMERCIAL</p><h3>Últimas ventas</h3></div><button class="text-button" id="refreshOperations" type="button">Actualizar <span>↻</span></button></div><div id="salesList" class="sales-list"><div class="loading">Cargando ventas...</div></div></article>
+    <footer><span>GAMING SOLUTIONS © 2026 · Operaciones</span><a href="/">Volver al dashboard</a></footer>
+  </main>
+  <script src="/operations.js"></script>
+</body>
+</html>
