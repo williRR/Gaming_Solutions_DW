@@ -13,6 +13,8 @@
     <nav>
       <a class="active" href="#dashboard"><span>▦</span>Resumen</a>
       <a href="#inventory"><span>◈</span>Inventario & #GS</a>
+      <a href="#catalog"><span>▣</span>Catálogo visual</a>
+      <a href="#clients"><span>◎</span>Clientes</a>
       <a href="#sales"><span>↗</span>Ventas Efectivo</a>
       <a href="#purchases"><span>↙</span>Compras</a>
       <a href="#audit"><span>◌</span>Auditoría BD</a>
@@ -26,7 +28,7 @@
       <div class="header-actions"><button class="icon-button" title="Actualizar datos" id="refresh">↻</button><div class="avatar">GS</div></div>
     </header>
 
-    <section class="hero">
+    <section class="hero" id="dashboard">
       <div>
         <p class="eyebrow">EQUIPO GAMER REAL · REVISADO PIEZA POR PIEZA</p>
         <h2>Transparencia total<br><em>Garantía por escrito.</em></h2>
@@ -42,7 +44,7 @@
     </section>
 
     <section class="content-grid">
-      <article class="panel inventory-panel">
+      <article class="panel inventory-panel" id="inventory">
         <div class="panel-heading">
           <div><p class="eyebrow">INVENTARIO & INSPECCIÓN TÉCNICA</p><h3>Productos & Certificados #GS</h3></div>
           <button class="text-button" data-open="inventoryModal">Registrar Nuevo <span>→</span></button>
@@ -67,7 +69,7 @@
         </div>
       </article>
 
-      <article class="panel sales-panel">
+      <article class="panel sales-panel" id="sales">
         <div class="panel-heading">
           <div><p class="eyebrow">ACTIVIDAD DE VENTAS</p><h3>Últimas Operaciones</h3></div>
           <button class="text-button" data-open="saleModal">Nueva Venta <span>→</span></button>
@@ -76,7 +78,44 @@
       </article>
     </section>
 
-    <section class="quick-actions">
+    <section class="module-grid" id="catalog">
+      <article class="panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CATÁLOGO MULTIMEDIA</p><h3>Productos destacados</h3></div>
+          <button class="text-button" id="catalogRefresh" type="button">Actualizar <span>↻</span></button>
+        </div>
+        <div class="product-gallery" id="productGallery"><div class="loading">Cargando catálogo visual...</div></div>
+      </article>
+      <article class="panel" id="categories">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CLASIFICACIÓN</p><h3>Categorías</h3></div>
+        </div>
+        <div class="category-list" id="categoryList"><div class="loading">Cargando categorías...</div></div>
+      </article>
+    </section>
+
+    <section class="module-grid" id="clients">
+      <article class="panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">CRM OPERATIVO</p><h3>Clientes registrados</h3></div>
+          <button class="text-button" data-open="clientModal" type="button">Nuevo cliente <span>→</span></button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Cliente</th><th>Contacto</th><th>Dirección</th></tr></thead>
+            <tbody id="clientRows"><tr><td colspan="3" class="loading">Cargando clientes...</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="panel" id="audit">
+        <div class="panel-heading">
+          <div><p class="eyebrow">TRAZABILIDAD</p><h3>Auditoría de cambios</h3></div>
+          <button class="text-button" id="auditRefresh" type="button">Actualizar <span>↻</span></button>
+        </div>
+        <div class="audit-list" id="auditList"><div class="loading">Cargando bitácora...</div></div>
+      </article>
+    </section>
+
+    <section class="quick-actions" id="purchases">
       <div><p class="eyebrow">ACCIONES RÁPIDAS</p><h3>Operación del Negocio</h3></div>
       <div class="action-buttons">
         <button data-open="inventoryModal"><span>＋</span>Registrar Hardware + Certificado</button>
@@ -180,6 +219,22 @@
           <label>Notas<input name="notes" type="text" maxlength="500"></label>
         </div>
         <button class="submit" type="submit">Confirmar Reabastecimiento</button>
+        <p class="form-message"></p>
+      </form>
+    </div>
+
+    <div class="modal" id="clientModal">
+      <form class="modal-card" data-form="client">
+        <button type="button" class="close" data-close>×</button>
+        <p class="eyebrow">CRM OPERATIVO</p>
+        <h3>Registrar cliente</h3>
+        <div class="form-grid">
+          <label>Nombre completo<input name="name" maxlength="150" required></label>
+          <label>Teléfono<input name="phone" maxlength="30"></label>
+          <label>Correo electrónico<input name="email" type="email" maxlength="100"></label>
+          <label>Dirección<input name="address" maxlength="250"></label>
+        </div>
+        <button class="submit" type="submit">Guardar cliente</button>
         <p class="form-message"></p>
       </form>
     </div>

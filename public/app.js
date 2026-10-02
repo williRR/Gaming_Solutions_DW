@@ -1,6 +1,12 @@
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 let catalogs = { customers: [], providers: [], inventory: [] };
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[character]));
+}
+
 function getCategoryLabel(type) {
   switch (type) {
     case 'LAPTOP': return '<span class="type laptop">Laptop Gamer</span>';
@@ -13,9 +19,9 @@ function renderInventory(items) {
   document.querySelector('#inventoryRows').innerHTML = items.map(item => `
     <tr>
       <td>
-        <strong>${item.name}</strong><br>
-        <span class="cert-tag">${item.certificate || '#GS-2200'}</span> 
-        <small>${item.brand || ''} ${item.model || ''}</small>
+        <strong>${escapeHtml(item.name)}</strong><br>
+        <span class="cert-tag">${escapeHtml(item.certificate || '#GS-2200')}</span>
+        <small>${escapeHtml(`${item.brand || ''} ${item.model || ''}`)}</small>
       </td>
       <td>${getCategoryLabel(item.type)}</td>
       <td>
@@ -25,10 +31,10 @@ function renderInventory(items) {
           <span class="pill thermal" title="Rendimiento Térmico">Térmico ${item.thermalPct || 98}%</span>
         </div>
       </td>
-      <td><strong>${money.format(item.price)}</strong></td>
-      <td class="stock">${item.stock} u.</td>
-      <td><span class="state ${item.stock === 0 ? 'out' : item.stock <= 3 ? 'low' : ''}">${item.status || (item.stock === 0 ? 'Agotado' : 'Disponible')}</span></td>
-      <td><button class="edit-button" data-edit="${item.id}">Detalles</button></td>
+      <td><strong>${money.format(Number(item.price) || 0)}</strong></td>
+      <td class="stock">${Number(item.stock) || 0} u.</td>
+      <td><span class="state ${item.stock === 0 ? 'out' : item.stock <= 3 ? 'low' : ''}">${escapeHtml(item.status || (item.stock === 0 ? 'Agotado' : 'Disponible'))}</span></td>
+      <td><button class="edit-button" data-edit="${encodeURIComponent(item.id)}">Detalles</button></td>
     </tr>`).join('');
 }
 
@@ -40,14 +46,68 @@ function renderSales(items, mode) {
   document.querySelector('#salesList').innerHTML = items.map(sale => `
     <div class="sale">
       <div class="sale-info">
-        <span class="sale-name">${sale.customer}</span>
-        <span class="sale-date">Venta #${sale.id} · ${sale.date}</span>
+        <span class="sale-name">${escapeHtml(sale.customer || 'Cliente')}</span>
+        <span class="sale-date">Venta #${escapeHtml(sale.id)} · ${escapeHtml(sale.date)}</span>
       </div>
       <div class="sale-meta">
         <strong class="sale-total">${money.format(sale.total)}</strong>
-        <span class="sale-payment">${sale.payment}</span>
+        <span class="sale-payment">${escapeHtml(sale.payment)}</span>
       </div>
     </div>`).join('');
+}
+
+function renderGallery(items) {
+  const gallery = document.querySelector('#productGallery');
+  gallery.innerHTML = items.slice(0, 6).map(item => `
+    <article class="product-card">
+      <div>
+        <div class="product-art">${escapeHtml(item.type || 'GS')}</div>
+        <h4>${escapeHtml(item.name)}</h4>
+        <small>${escapeHtml(item.certificate || 'Certificado pendiente')} · ${Number(item.stock) || 0} unidades</small>
+      </div>
+      <strong class="product-price">${money.format(Number(item.price) || 0)}</strong>
+    </article>`).join('') || '<div class="empty-state">No hay productos disponibles.</div>';
+}
+
+function renderCategories(items) {
+  const list = document.querySelector('#categoryList');
+  list.innerHTML = items.length ? items.map(category => `
+    <div class="category-item"><span>${escapeHtml(category.name || category.NOMBRE || 'Sin nombre')}</span>
+      <small>${escapeHtml(category.description || category.DESCRIPCION || 'Categoría de catálogo')}</small></div>`).join('')
+    : '<div class="empty-state">No hay categorías publicadas en este entorno.</div>';
+}
+
+function renderClients(items) {
+  document.querySelector('#clientRows').innerHTML = items.length ? items.map(client => `
+    <tr><td><strong>${escapeHtml(client.name || client.NOMBRE)}</strong></td>
+      <td>${escapeHtml(client.email || client.EMAIL || client.phone || client.TELEFONO || 'Sin contacto')}</td>
+      <td>${escapeHtml(client.address || client.DIRECCION || 'Sin dirección')}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="empty-state">No hay clientes registrados.</td></tr>';
+}
+
+function renderAudit(items) {
+  const list = document.querySelector('#auditList');
+  list.innerHTML = items.length ? items.slice(0, 12).map(entry => `
+    <div class="audit-entry"><strong>${escapeHtml(entry.accion || entry.action || entry.EVENTO || 'Evento registrado')}</strong>
+      <small>${escapeHtml(entry.fecha || entry.date || entry.FECHA_EVENTO || '')} · ${escapeHtml(entry.usuario || entry.user || entry.USUARIO || 'Sistema')}</small></div>`).join('')
+    : '<div class="empty-state">No hay eventos de auditoría disponibles.</div>';
+}
+
+async function loadModules() {
+  const requests = await Promise.allSettled([
+    fetch('/api/inventory').then(response => response.ok ? response.json() : Promise.reject(new Error('No se pudo cargar el catálogo'))),
+    fetch('/api/categories').then(response => response.ok ? response.json() : Promise.reject(new Error('No se pudieron cargar las categorías'))),
+    fetch('/api/clients').then(response => response.ok ? response.json() : Promise.reject(new Error('No se pudieron cargar los clientes'))),
+    fetch('/api/audit').then(response => response.ok ? response.json() : Promise.reject(new Error('No se pudo cargar la auditoría')))
+  ]);
+  if (requests[0].status === 'fulfilled') renderGallery(requests[0].value);
+  else document.querySelector('#productGallery').innerHTML = '<div class="empty-state">Catálogo visual no disponible.</div>';
+  if (requests[1].status === 'fulfilled') renderCategories(requests[1].value);
+  else document.querySelector('#categoryList').innerHTML = '<div class="empty-state">Categorías no disponibles.</div>';
+  if (requests[2].status === 'fulfilled') renderClients(requests[2].value);
+  else document.querySelector('#clientRows').innerHTML = '<tr><td colspan="3" class="empty-state">Clientes no disponibles.</td></tr>';
+  if (requests[3].status === 'fulfilled') renderAudit(requests[3].value);
+  else document.querySelector('#auditList').innerHTML = '<div class="empty-state">Auditoría no disponible.</div>';
 }
 
 async function loadDashboard() {
@@ -173,6 +233,10 @@ async function submitForm(event) {
         notes: data.notes.trim() || null
       };
     }
+    if (form.dataset.form === 'client') {
+      endpoint = '/api/clients';
+      payload = data;
+    }
     const response = await fetch(endpoint, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -185,6 +249,7 @@ async function submitForm(event) {
     form.reset();
     await loadDashboard();
     await loadCatalogs();
+    await loadModules();
     setTimeout(() => closeModal(form.closest('.modal')), 1100);
   } catch (error) {
     message.textContent = error.message;
@@ -195,6 +260,7 @@ async function submitForm(event) {
 async function boot() {
   try {
     await loadDashboard();
+    await loadModules();
     try { await loadCatalogs(); } catch (error) {
       catalogs = { customers: [], providers: [], inventory: [] };
       document.querySelector('#sidebarStatus').textContent = error.message;
@@ -208,9 +274,11 @@ async function boot() {
 }
 
 document.querySelector('#refresh').addEventListener('click', boot);
+document.querySelector('#catalogRefresh').addEventListener('click', loadModules);
+document.querySelector('#auditRefresh').addEventListener('click', loadModules);
 document.querySelector('#inventoryRows').addEventListener('click', event => {
   const button = event.target.closest('[data-edit]');
-  if (button) openProductDetails(button.dataset.edit);
+  if (button) openProductDetails(decodeURIComponent(button.dataset.edit));
 });
 document.querySelector('#deactivateProduct').addEventListener('click', async () => {
   const productId = document.querySelector('[data-form="product-update"]').elements.productId.value;
