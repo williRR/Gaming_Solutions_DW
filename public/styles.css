@@ -88,6 +88,10 @@ td:first-child{font-weight:600}
 .audit-entry:first-child{border-top:0;padding-top:0}
 .audit-entry small{display:block;color:var(--muted);font:9px var(--mono);margin-top:5px}
 .empty-state{color:var(--muted);font:10px var(--mono);padding:10px 0}
+.page-intro{background:var(--lime);margin:28px 0 20px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;gap:20px}
+.page-intro p{margin:0;font-size:14px;line-height:1.5}
+.submit.compact{width:auto;margin:0;padding:11px 16px;white-space:nowrap}
+footer a{color:var(--ink)}
 .action-buttons{display:flex;gap:8px}
 .action-buttons button{border:1px solid #ccd1cb;background:var(--white);padding:11px 13px;font:11px var(--mono);color:var(--ink);cursor:pointer}
 .action-buttons button:hover{background:var(--ink);color:#fff}
