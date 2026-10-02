@@ -140,8 +140,8 @@
               <option value="RETRO">Retro Restoration (6M Garantía)</option>
             </select>
           </label>
-          <label>Precio de Venta ($)<input name="price" type="number" min="0" step="0.01" required></label>
-          <label>Precio de Compra ($)<input name="cost" type="number" min="0" step="0.01"></label>
+          <label>Precio de Venta (Q)<input name="price" type="number" min="0" step="0.01" required></label>
+          <label>Precio de Compra (Q)<input name="cost" type="number" min="0" step="0.01"></label>
           <label>Stock Inicial<input name="stock" type="number" min="0" required></label>
         </div>
         <button class="submit" type="submit">Guardar Producto & Generar Certificado #GS</button>
@@ -158,8 +158,8 @@
           <input name="productId" type="hidden">
           <div class="form-grid">
             <label>Nombre<input name="name" required></label>
-            <label>Precio de Venta ($)<input name="price" type="number" min="0" step="0.01" required></label>
-            <label>Precio de Compra ($)<input name="cost" type="number" min="0" step="0.01" required></label>
+            <label>Precio de Venta (Q)<input name="price" type="number" min="0" step="0.01" required></label>
+            <label>Precio de Compra (Q)<input name="cost" type="number" min="0" step="0.01" required></label>
             <label>Stock<input name="stock" type="number" min="0" step="1" required></label>
           </div>
           <button class="submit" type="submit">Guardar cambios</button>
@@ -215,7 +215,7 @@
           <label>Proveedor<select name="providerId" id="purchaseProvider" required></select></label>
           <label>Producto<select name="productId" id="purchaseProduct" required></select></label>
           <label>Cantidad<input name="quantity" type="number" min="1" value="1" required></label>
-          <label>Costo Unitario ($)<input name="cost" type="number" min="0" step="0.01" required></label>
+          <label>Costo Unitario (Q)<input name="cost" type="number" min="0" step="0.01" required></label>
           <label>Notas<input name="notes" type="text" maxlength="500"></label>
         </div>
         <button class="submit" type="submit">Confirmar Reabastecimiento</button>

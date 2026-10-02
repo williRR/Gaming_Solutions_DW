@@ -1,4 +1,4 @@
-const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' });
 let catalogs = { customers: [], providers: [], inventory: [] };
 
 function escapeHtml(value) {
