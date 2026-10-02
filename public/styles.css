@@ -59,6 +59,8 @@ td:first-child{font-weight:600}
 .state.out{color:#9a9fa1}
 .edit-button{background:#f0f2ef;border:1px solid #d5d9d4;padding:4px 8px;font:10px var(--mono);cursor:pointer}
 .edit-button:hover{background:var(--ink);color:#fff}
+.danger-button{background:#a94f43;color:#fff}
+.danger-button:hover{background:#7e3029}
 .loading{color:var(--muted);text-align:center}
 .sales-list{display:grid}
 .sale{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:14px 0}

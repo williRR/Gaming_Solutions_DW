@@ -34,7 +34,7 @@ function renderInventory(items) {
       <td><strong>${money.format(Number(item.price) || 0)}</strong></td>
       <td class="stock">${Number(item.stock) || 0} u.</td>
       <td><span class="state ${item.stock === 0 ? 'out' : item.stock <= 3 ? 'low' : ''}">${escapeHtml(item.status || (item.stock === 0 ? 'Agotado' : 'Disponible'))}</span></td>
-      <td><button class="edit-button" data-edit="${encodeURIComponent(item.id)}">Detalles</button></td>
+      <td><button class="edit-button" data-edit="${encodeURIComponent(item.id)}">Editar / GS</button></td>
     </tr>`).join('');
 }
 
