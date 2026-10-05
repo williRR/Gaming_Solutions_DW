@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso | Gaming Solutions</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body { display: grid; min-height: 100vh; place-items: center; background: #11151d; }
+    .login-card { width: min(420px, calc(100% - 32px)); padding: 36px; background: #1b222d; border: 1px solid #344052; border-radius: 16px; color: #eef3f8; }
+    .login-card h1 { margin: 8px 0 24px; }
+    .login-card label { display: grid; gap: 8px; margin: 16px 0; }
+    .login-card input { padding: 12px; border: 1px solid #526176; border-radius: 8px; background: #11151d; color: inherit; }
+    .login-card button { width: 100%; padding: 12px; border: 0; border-radius: 8px; cursor: pointer; }
+    .login-message { min-height: 24px; color: #ff8d8d; }
+    .demo-help { margin-top: 24px; font-size: .85rem; color: #aeb9c7; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <p class="eyebrow">GAMING SOLUTIONS / CONTROL CENTER</p>
+    <h1>Iniciar sesión</h1>
+    <form id="loginForm">
+      <label>Usuario<input name="username" autocomplete="username" required autofocus></label>
+      <label>Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="submit" type="submit">Entrar al panel</button>
+      <p class="login-message" id="loginMessage" role="alert"></p>
+    </form>
+    <div class="demo-help">
+      <strong>DEMO_MODE:</strong><br>
+      admin / admin123 · ventas / ventas123 · almacen / almacen123
+    </div>
+  </main>
+  <script src="/js/auth.js"></script>
+  <script>
+    document.querySelector('#loginForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const message = document.querySelector('#loginMessage');
+      const data = Object.fromEntries(new FormData(event.currentTarget));
+      message.textContent = 'Validando acceso...';
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'No se pudo iniciar sesión');
+        window.GSAuth.saveSession(result);
+        window.location.replace('/');
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    });
+  </script>
+</body>
+</html>
