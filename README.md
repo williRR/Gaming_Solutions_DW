@@ -1,280 +1,642 @@
-# Gaming Solutions | Panel de Administración e Inventario Certificado #GS
+# Gaming Solutions — Bitácora de desarrollo
 
-Sistema de gestión administrativa y control de inventarios para **Gaming Solutions**. Permite administrar el catálogo de hardware gamer (Consolas Next-Gen, Laptops Gamer de alto rendimiento y Retro Restorations recapacitadas), gestionar certificados de inspección técnica **#GS**, registrar ventas presenciales (efectivo/transferencia), compras a proveedores y supervisar métricas en tiempo real.
+Panel administrativo para **Gaming Solutions**, orientado a inventario de hardware gamer, certificados de inspección #GS, ventas, compras y operación móvil.
 
----
-
-## 1. Guía de Instalación de Base de Datos en Oracle APEX
-
-En Oracle APEX abre **SQL Workshop > SQL Scripts > Upload** y ejecuta los scripts ubicados en la carpeta `sql/` en este orden estricto:
-
-1. **`sql/01_schema.sql`**: Crea las tablas `ROLES`, `USUARIOS`, `CATEGORIAS`, `PROVEEDORES`, `CLIENTES`, `PRODUCTOS`, `CERTIFICADOS_GS`, `PRODUCTOS_DETALLE_LAPTOP`, `PRODUCTOS_DETALLE_RETRO`, `PRODUCTOS_FOTOS`, `COMPRAS`, `COMPRAS_DETALLE`, `VENTAS`, `VENTAS_DETALLE`, `CUPONES_DESCUENTO`, vista `CONSOLAS` e índices de rendimiento.
-2. **`sql/02_auditoria.sql`**: Crea la tabla `BITACORA_AUDITORIA` y los triggers PL/SQL de seguimiento automatizado en JSON.
-3. **`sql/03_seed.sql`**: Inserta datos de prueba de productos (PS5, Xbox Series X, Switch OLED, Laptops ROG/MSI, SNES, GBC, Genesis) con sus certificaciones `#GS-2201` a `#GS-2208`, clientes, proveedores y ventas.
-4. **`sql/04_ords_rest_endpoints.sql`**: Publica automáticamente los Endpoints REST en Oracle ORDS.
+Este documento funciona como bitácora técnica y guía de puesta en marcha de las **tres fases implementadas**. Describe qué se cambió, qué archivos participan, cómo probarlo y qué falta antes de llevar el sistema a producción.
 
 ---
 
-## 2. Catálogo Completo de Endpoints REST (ORDS)
+## 1. Resumen del estado actual
 
-A continuación se detalla la lista de todos los Endpoints REST requeridos para la operación del panel administrativo.
+El proyecto cuenta con un MVP operativo basado en:
 
-Base URL estándar de ORDS:
-`https://oracleapex.com/ords/willi_gs/gaming/`
+- **Backend:** Node.js, Express y `node-oracledb`.
+- **Base de datos:** Oracle Database mediante conexión directa u Oracle APEX/ORDS.
+- **Frontend:** HTML, CSS y JavaScript vanilla.
+- **Autenticación:** JWT con expiración de 8 horas.
+- **Autorización:** roles `Administrador`, `Ventas` y `Almacen`.
+- **Transacciones:** ventas y compras multi-línea con actualización de inventario.
+- **Modo DEMO:** permite probar la aplicación sin Oracle.
+- **Móvil:** Capacitor, navegación inferior, pull-to-refresh y escaneo QR.
 
----
-
-### A. Productos e Inventario (Catálogo & Certificados #GS)
-
-#### 1. `GET /gaming/productos/`
-- **Descripción**: Obtiene la lista completa de productos activos con sus Certificados #GS y métricas de inspección técnica.
-- **Método**: `GET`
-- **Maneja ORDS (Query)**:
-  ```sql
-  SELECT 
-    p.ID_PRODUCTO AS "id",
-    p.NOMBRE AS "name",
-    p.MARCA AS "brand",
-    p.MODELO AS "model",
-    p.TIPO_HARDWARE AS "type",
-    c.NOMBRE AS "category",
-    p.PRECIO_VENTA AS "price",
-    p.PRECIO_COMPRA AS "cost",
-    p.STOCK AS "stock",
-    CASE 
-      WHEN p.STOCK = 0 THEN 'Agotado' 
-      WHEN p.STOCK <= 3 THEN 'Stock bajo' 
-      ELSE 'Disponible' 
-    END AS "status",
-    cert.CODIGO_CERTIFICADO AS "certificate",
-    cert.HARDWARE_ORIGINAL_PCT AS "hw_pct",
-    cert.ESTADO_ESTETICO_PCT AS "aesthetic_pct",
-    cert.RENDIMIENTO_TERMICO_PCT AS "thermal_pct",
-    cert.MESES_GARANTIA AS "warranty_months"
-  FROM PRODUCTOS p
-  JOIN CATEGORIAS c ON c.ID_CATEGORIA = p.ID_CATEGORIA
-  LEFT JOIN CERTIFICADOS_GS cert ON cert.ID_PRODUCTO = p.ID_PRODUCTO
-  WHERE p.ACTIVO = 'S'
-  ORDER BY p.FECHA_INGRESO DESC
-  ```
-- **Respuesta JSON**:
-  ```json
-  {
-    "items": [
-      {
-        "id": 1,
-        "name": "PlayStation 5 Slim Digital Edition",
-        "brand": "Sony",
-        "model": "CFI-2015",
-        "type": "NEXT_GEN",
-        "category": "Consolas Next-Gen",
-        "price": 499.99,
-        "cost": 420.00,
-        "stock": 8,
-        "status": "Disponible",
-        "certificate": "#GS-2201",
-        "hw_pct": 100,
-        "aesthetic_pct": 96,
-        "thermal_pct": 98,
-        "warranty_months": 12
-      }
-    ]
-  }
-  ```
+> **Estado comercial:** funcional para demostración y validación operativa. Antes de venderlo como producto terminado deben completarse endurecimiento de seguridad, persistencia de idempotencia, pruebas automatizadas, despliegue y requisitos fiscales de la empresa.
 
 ---
 
-#### 2. `POST /gaming/productos/`
-- **Descripción**: Registra un nuevo producto de hardware e inserta automáticamente su Certificado de Inspección #GS.
-- **Método**: `POST`
-- **Cuerpo de la Petición (JSON)**:
-  ```json
-  {
-    "name": "Laptop Lenovo Legion Pro 5",
-    "brand": "Lenovo",
-    "model": "16IRX8",
-    "type": "LAPTOP",
-    "price": 1399.99,
-    "cost": 1100.00,
-    "stock": 3,
-    "description": "Intel i7-13700HX, RTX 4060, 16GB RAM, 1TB SSD",
-    "hw_pct": 100,
-    "aesthetic_pct": 98,
-    "thermal_pct": 96
-  }
-  ```
-- **Respuesta JSON (HTTP 201 Created)**:
-  ```json
-  {
-    "id": 9,
-    "certificate": "#GS-2209",
-    "message": "Producto y certificado creados exitosamente"
-  }
-  ```
+## 2. Arquitectura general
+
+```text
+                    +----------------------+
+                    |  Navegador / PWA      |
+                    |  App Android Capacitor|
+                    +----------+-----------+
+                               |
+                               v
+                    +----------------------+
+                    | Node.js + Express    |
+                    | JWT + RBAC           |
+                    | Rutas web y móviles  |
+                    +-----+-----------+----+
+                          |           |
+                          v           v
+                   Oracle ORDS   Oracle Database
+                   / APEX        node-oracledb
+```
+
+### Modos de ejecución
+
+1. **DEMO:** `DEMO_MODE=true`. Utiliza datos en memoria y no requiere Oracle.
+2. **ORDS:** el backend consume los endpoints REST publicados en Oracle APEX.
+3. **Oracle directo:** Node utiliza `node-oracledb` y un pool de conexiones.
+
+El navegador siempre debe comunicarse con el backend Node. No se deben exponer credenciales Oracle ni operaciones administrativas directamente al frontend.
 
 ---
 
-#### 3. `PUT /gaming/productos/:id`
-- **Descripción**: Actualiza el precio de venta y el nivel de stock de un producto.
-- **Método**: `PUT` o `PATCH`
-- **Cuerpo de la Petición (JSON)**:
-  ```json
-  {
-    "price": 1349.99,
-    "stock": 5
-  }
-  ```
+## 3. Fase 1 — Seguridad, autenticación y roles
+
+### Objetivo
+
+Evitar que las rutas de inventario, ventas, compras y auditoría queden expuestas sin sesión, y adaptar la interfaz según el rol del usuario.
+
+### Cambios realizados
+
+#### Backend
+
+Se creó [`src/middleware/auth.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/src/middleware/auth.js>), que incluye:
+
+- Generación de JWT.
+- Expiración de token de 8 horas.
+- Payload:
+
+```json
+{
+  "id_usuario": 1,
+  "nombre": "Carlos Mendoza - Admin Master",
+  "rol": "Administrador"
+}
+```
+
+- Middleware `authenticateToken`.
+- Middleware `requireRole`.
+- Verificación de contraseñas con bcrypt.
+- Normalización de roles históricos de la base de datos:
+  - `Administrador General` → `Administrador`.
+  - `Vendedor / Cajero` → `Ventas`.
+  - `Técnico Certificador` → `Almacen`.
+- Endpoint `GET /api/auth/me`.
+
+Se integró la autenticación en [`src/server.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/src/server.js>).
+
+Todas las rutas `/api/*` requieren JWT excepto:
+
+- `POST /api/auth/login`.
+- `GET /api/health`.
+
+Para las operaciones Oracle se establece `DBMS_SESSION.CLIENT_IDENTIFIER` con el `id_usuario`, de forma que la auditoría pueda identificar al operador.
+
+#### Frontend
+
+Se añadieron:
+
+- [`public/login.html`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/login.html>).
+- [`public/js/auth.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/js/auth.js>).
+- [`public/js/rbac-ui.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/js/rbac-ui.js>).
+
+La sesión frontend:
+
+- Guarda el JWT en `localStorage`.
+- Guarda el usuario y rol.
+- Adjunta `Authorization: Bearer <token>` automáticamente.
+- Redirige a `/login.html` cuando recibe `401` o `403`.
+- Permite cerrar sesión desde el encabezado.
+- Oculta controles que el rol no puede utilizar.
+
+### Permisos por rol
+
+| Módulo/acción | Administrador | Ventas | Almacen |
+|---|---:|---:|---:|
+| Dashboard | Sí | Sí | Sí |
+| Consultar inventario | Sí | Sí | Sí |
+| Crear/editar productos | Sí | No | Sí |
+| Actualizar certificados | Sí | No | Sí |
+| Registrar ventas | Sí | Sí | No |
+| Consultar clientes | Sí | Sí | No |
+| Registrar compras | Sí | No | Sí |
+| Ver costos de compra | Sí | No | Sí |
+| Auditoría | Sí | No | No |
+| Baja lógica de productos | Sí | No | No |
+
+El control visual no reemplaza la autorización del backend. Un usuario sin permiso recibe `403` aunque intente llamar la ruta manualmente.
+
+### Usuarios DEMO
+
+Disponibles con `DEMO_MODE=true`:
+
+| Usuario | Contraseña | Rol |
+|---|---|---|
+| `admin` | `admin123` | Administrador |
+| `ventas` | `ventas123` | Ventas |
+| `almacen` | `almacen123` | Almacen |
+
+Estas credenciales son únicamente para demostración.
 
 ---
 
-#### 4. `DELETE /gaming/productos/:id`
-- **Descripción**: Desactiva un producto del catálogo (baja lógica `ACTIVO = 'N'`).
-- **Método**: `DELETE`
+## 4. Fase 2 — Operación comercial y transacciones
 
----
+### Objetivo
 
-### B. Métricas del Dashboard
+Permitir registrar ventas y compras con múltiples productos, actualizar inventario de forma consistente y evitar duplicados por reintentos.
 
-#### 5. `GET /gaming/dashboard/`
-- **Descripción**: Retorna los totales consolidados para las tarjetas superiores del panel.
-- **Método**: `GET`
-- **Respuesta JSON**:
-  ```json
-  {
-    "mode": "ords",
-    "metrics": {
-      "inventory": 29,
-      "lowStock": 4,
-      "monthlySales": 13840.50,
-      "customers": 86
+### Rutas modulares
+
+Se crearon:
+
+- [`src/routes/sales.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/src/routes/sales.js>).
+- [`src/routes/purchases.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/src/routes/purchases.js>).
+
+Se montaron en [`src/server.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/src/server.js>) sin eliminar las rutas existentes.
+
+### Ventas multi-línea
+
+Endpoint:
+
+```http
+POST /api/sales
+Authorization: Bearer <token>
+Idempotency-Key: venta-demo-001
+Content-Type: application/json
+```
+
+Payload:
+
+```json
+{
+  "customerId": 1,
+  "payment": "EFECTIVO",
+  "items": [
+    {
+      "id_producto": 1,
+      "cantidad": 1,
+      "precio_unitario": 499.99
+    },
+    {
+      "id_producto": 2,
+      "cantidad": 2,
+      "precio_unitario": 349.99
     }
+  ],
+  "notes": "Venta de mostrador"
+}
+```
+
+Proceso Oracle:
+
+1. Valida cliente, método de pago y líneas.
+2. Agrupa productos repetidos.
+3. Bloquea las filas con `SELECT ... FOR UPDATE`.
+4. Comprueba que todos los productos tengan stock.
+5. Inserta la cabecera en `VENTAS`.
+6. Inserta las líneas en `VENTAS_DETALLE`.
+7. Descuenta el stock en `PRODUCTOS`.
+8. Confirma todo con `COMMIT`.
+9. Ejecuta `ROLLBACK` si alguna operación falla.
+
+Si un producto no existe o no tiene stock suficiente, responde HTTP `400` y no deja una venta parcial.
+
+### Compras multi-línea
+
+Endpoint:
+
+```http
+POST /api/purchases
+Authorization: Bearer <token>
+Idempotency-Key: compra-demo-001
+Content-Type: application/json
+```
+
+Payload:
+
+```json
+{
+  "providerId": 1,
+  "items": [
+    {
+      "id_producto": 4,
+      "cantidad": 2,
+      "precio_compra": 1250.00
+    },
+    {
+      "id_producto": 6,
+      "cantidad": 5,
+      "precio_compra": 95.00
+    }
+  ],
+  "notes": "Reposición semanal"
+}
+```
+
+Proceso Oracle:
+
+1. Valida proveedor y líneas.
+2. Inserta la cabecera en `COMPRAS`.
+3. Inserta las líneas en `COMPRAS_DETALLE`.
+4. Aumenta el stock en `PRODUCTOS`.
+5. Actualiza el precio de compra.
+6. Confirma todo en una transacción.
+
+### Idempotencia
+
+Las ventas y compras aceptan el encabezado:
+
+```http
+Idempotency-Key: operacion-unica-001
+```
+
+Una repetición de la misma clave para el mismo usuario devuelve el resultado anterior y no vuelve a modificar el stock.
+
+Actualmente la clave se almacena en memoria del proceso Node. Para producción multi-instancia se debe crear una tabla Oracle con una restricción `UNIQUE`.
+
+### Interfaz de venta
+
+Se añadió [`public/js/sales.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/js/sales.js>), que incluye:
+
+- Carrito de compras.
+- Selección de productos.
+- Cantidades.
+- Validación contra el stock disponible.
+- Subtotales.
+- Total en tiempo real.
+- Eliminación de líneas.
+- Envío multi-línea.
+- Idempotencia en el navegador.
+
+### Certificados e impresión
+
+Se añadió [`public/js/certificates.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/js/certificates.js>):
+
+- Muestra datos del certificado #GS.
+- Permite imprimir una ficha.
+- Incluye métricas de hardware, estado estético, rendimiento térmico, garantía y técnico responsable.
+
+---
+
+## 5. Fase 3 — Aplicación móvil y sincronización
+
+### Objetivo
+
+Reutilizar el panel web en una aplicación móvil Capacitor, respetando autenticación, roles y operaciones existentes.
+
+### API móvil
+
+Se creó [`src/routes/mobile.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/src/routes/mobile.js>).
+
+#### Dashboard móvil
+
+```http
+GET /api/mobile/dashboard
+Authorization: Bearer <token>
+```
+
+Devuelve una respuesta compacta con:
+
+- Stock total.
+- Productos con stock bajo.
+- Ventas recientes.
+- Inventario resumido.
+- Estado de cada producto.
+
+#### Escáner móvil
+
+```http
+GET /api/mobile/scan/%23GS-2201
+Authorization: Bearer <token>
+```
+
+Acepta:
+
+- ID del producto.
+- SKU.
+- Código del certificado #GS.
+
+El endpoint retorna la ficha del producto o `404` si no existe.
+
+Ambas rutas aplican JWT y permiten consultar a los tres roles operativos.
+
+### Configuración Capacitor
+
+Se añadió [`capacitor.config.json`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/capacitor.config.json>).
+
+Dependencias instaladas:
+
+- `@capacitor/core`.
+- `@capacitor/android`.
+- `@capacitor/status-bar`.
+- `@capacitor/splash-screen`.
+- `@capacitor/cli`.
+
+Configuración actual:
+
+- Aplicación: `Gaming Solutions Admin`.
+- Identificador: `pe.gamingsolutions.admin`.
+- Carpeta web: `public`.
+- URL de desarrollo: `http://localhost:3000`.
+- Status bar y splash screen configurados.
+
+### Inicialización móvil
+
+Desde la raíz del proyecto:
+
+```bash
+npm install
+npx cap add android
+npx cap sync android
+npx cap open android
+```
+
+Para un teléfono físico, `localhost` apunta al teléfono y no al computador. En desarrollo se debe cambiar `server.url` por la IP local accesible:
+
+```json
+{
+  "server": {
+    "url": "http://192.168.1.100:3000",
+    "cleartext": true,
+    "androidScheme": "http"
   }
-  ```
+}
+```
 
----
+En producción utilizar HTTPS y desactivar `cleartext`:
 
-### C. Catálogos Auxiliares
-
-#### 6. `GET /gaming/clientes/`
-- **Descripción**: Lista de clientes registrados para llenar el combo en el formulario de ventas.
-- **Método**: `GET`
-- **Query SQL**:
-  ```sql
-  SELECT ID_CLIENTE AS "id", NOMBRE AS "name", EMAIL AS "email", TELEFONO AS "phone" FROM CLIENTES ORDER BY NOMBRE;
-  ```
-
----
-
-#### 7. `GET /gaming/proveedores/`
-- **Descripción**: Lista de proveedores registrados para compras.
-- **Método**: `GET`
-- **Query SQL**:
-  ```sql
-  SELECT ID_PROVEEDOR AS "id", NOMBRE AS "name", TIPO_PROVEEDOR AS "type" FROM PROVEEDORES ORDER BY NOMBRE;
-  ```
-
----
-
-### D. Operaciones de Ventas y Compras (Efectivo / Transferencia)
-
-#### 8. `POST /gaming/ventas/`
-- **Descripción**: Registra una venta en efectivo o transferencia, descuenta el stock atómicamente e inserta la línea de detalle.
-- **Método**: `POST`
-- **Cuerpo de la Petición (JSON)**:
-  ```json
-  {
-    "customerId": 1,
-    "payment": "EFECTIVO",
-    "total": 499.99,
-    "productId": 1,
-    "quantity": 1,
-    "price": 499.99,
-    "notes": "Entrega en tienda con comprobante"
+```json
+{
+  "server": {
+    "url": "https://admin.gamingsolutions.pe",
+    "cleartext": false,
+    "androidScheme": "https"
   }
-  ```
-- **Respuesta JSON (HTTP 201 Created)**:
-  ```json
-  {
-    "id": 1050,
-    "message": "Venta registrada con éxito"
-  }
-  ```
+}
+```
+
+Después de cambiar la URL:
+
+```bash
+npx cap sync android
+```
+
+No se debe ejecutar `npx cap add android` más de una vez para el mismo proyecto.
+
+### Navegación móvil
+
+Se añadió [`public/js/mobile-nav.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/js/mobile-nav.js>).
+
+Incluye:
+
+- Barra inferior para pantallas menores a 900px.
+- Barra visible dentro de Capacitor.
+- Pestañas filtradas según el rol.
+- Pull-to-refresh.
+- Manejo del botón Atrás de Android.
+- Cierre de modales con el botón Atrás.
+- Salida de la aplicación cuando no existe historial.
+
+Pestañas:
+
+| Rol | Pestañas |
+|---|---|
+| Administrador | Resumen, Inventario, Ventas, Compras, Auditoría |
+| Ventas | Resumen, Inventario, Ventas |
+| Almacen | Resumen, Inventario, Compras |
+
+### Escaneo QR
+
+Se añadió [`public/js/qr-scanner.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/js/qr-scanner.js>).
+
+Características:
+
+- Cámara trasera.
+- Lectura de códigos QR con `html5-qrcode`.
+- Consulta automática de producto.
+- Búsqueda manual como alternativa.
+- Detención de cámara al cerrar.
+- Apertura del detalle del producto.
+
+Actualmente `html5-qrcode` se carga desde CDN. Para una app offline se recomienda descargar la librería y servirla localmente desde `public/vendor/`.
 
 ---
 
-#### 9. `POST /gaming/compras/`
-- **Descripción**: Registra una compra a proveedor, aumentando el stock disponible del producto.
-- **Método**: `POST`
-- **Cuerpo de la Petición (JSON)**:
-  ```json
-  {
-    "providerId": 1,
-    "productId": 4,
-    "quantity": 2,
-    "cost": 1250.00
-  }
-  ```
+## 6. Base de datos Oracle y ORDS
+
+Ejecutar los scripts en este orden:
+
+1. [`sql/01_schema.sql`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/sql/01_schema.sql>)
+   - Tablas, relaciones, restricciones, índices y vista `CONSOLAS`.
+2. [`sql/02_auditoria.sql`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/sql/02_auditoria.sql>)
+   - `BITACORA_AUDITORIA` y triggers.
+3. [`sql/03_seed.sql`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/sql/03_seed.sql>)
+   - Datos de demostración.
+4. [`sql/04_ords_rest_endpoints.sql`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/sql/04_ords_rest_endpoints.sql>)
+   - Módulo base `gaming`, productos, dashboard, catálogos y ventas.
+5. [`sql/05_ords_rest_endpoints.sql`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/sql/05_ords_rest_endpoints.sql>)
+   - Proveedores, categorías, clientes, compras, auditoría y consultas.
+6. [`sql/06_ords_post_actions.sql`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/sql/06_ords_post_actions.sql>)
+   - Alternativas `POST` para instalaciones donde el WAF bloquea `PATCH` o `DELETE`.
+
+Base URL esperada:
+
+```text
+https://<instancia>/ords/<esquema>/gaming/
+```
+
+Pruebas directas:
+
+- [`api_tests.http`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/api_tests.http>)
+- [`ords_endpoints.http`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/ords_endpoints.http>)
 
 ---
 
-### E. Auditoría del Sistema
+## 7. Instalación completa desde cero
 
-#### 10. `GET /gaming/auditoria/`
-- **Descripción**: Consulta los últimos eventos registrados en la bitácora de auditoría.
-- **Método**: `GET`
-- **Query SQL**:
-  ```sql
-  SELECT 
-    ID_AUDITORIA AS "id",
-    TABLA_AFECTADA AS "table",
-    OPERACION AS "operation",
-    USUARIO_BD AS "db_user",
-    TO_CHAR(FECHA_EVENTO, 'YYYY-MM-DD HH24:MI:SS') AS "timestamp",
-    VALORES_ANTERIORES AS "old_values",
-    VALORES_NUEVOS AS "new_values"
-  FROM BITACORA_AUDITORIA
-  ORDER BY FECHA_EVENTO DESC
-  FETCH FIRST 50 ROWS ONLY;
-  ```
+### Requisitos
+
+- Node.js 18 o superior.
+- Oracle APEX con ORDS o Oracle Database.
+- Oracle Instant Client para conexión directa en Windows.
+- Android Studio solo si se construirá la app Android.
+
+### Backend DEMO
+
+```powershell
+npm install
+Copy-Item .env.example .env
+$env:DEMO_MODE="true"
+$env:PORT="3000"
+npm start
+```
+
+Abrir:
+
+```text
+http://localhost:3000/login.html
+```
+
+### Backend con ORDS/Oracle
+
+Copiar `.env.example` a `.env` y completar:
+
+```env
+PORT=3000
+DEMO_MODE=false
+JWT_SECRET=una-clave-aleatoria-larga
+ORDS_INVENTORY_URL=https://<instancia>/ords/<esquema>/gaming/productos/
+ORACLE_USER=gaming_solutions
+ORACLE_PASSWORD=<secreto>
+ORACLE_CONNECT_STRING=<host>:<puerto>/<servicio>
+ORACLE_POOL_MIN=1
+ORACLE_POOL_MAX=5
+ORACLE_POOL_INCREMENT=1
+```
+
+Si se necesita autenticación contra `USUARIOS`, deben estar configuradas las credenciales Oracle y los usuarios deben tener hashes bcrypt en `USUARIOS.CLAVE_HASH`.
+
+Nunca subir `.env`, contraseñas, wallets, certificados ni credenciales al repositorio.
 
 ---
 
-## 3. Instrucciones de Configuración en Oracle APEX (Paso a Paso)
+## 8. Rutas principales de la API
 
-Existen dos opciones para dejar habilitados estos endpoints en tu cuenta de Oracle APEX:
+### Autenticación
 
-### Opción 1: Ejecución Automática por Script PL/SQL (Recomendado)
-1. Entra a **SQL Workshop > SQL Scripts**.
-2. Ejecuta el archivo [`sql/04_ords_rest_endpoints.sql`](file:///c:/Users/user/OneDrive/Desktop/Uni/8vo%20ciclo/desarrollo%20web/Proyecto%20fase%202/sql/04_ords_rest_endpoints.sql).
-3. Este script invoca los paquetes `ORDS.ENABLE_SCHEMA`, `ORDS.DEFINE_MODULE`, `ORDS.DEFINE_TEMPLATE` y `ORDS.DEFINE_HANDLER` creando todos los endpoints indicados arriba.
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/auth/login` | Inicia sesión y genera JWT |
+| `GET` | `/api/auth/me` | Verifica la sesión actual |
+| `GET` | `/api/health` | Estado del backend y conexión |
 
-### Opción 2: Configuración Visual desde la Interfaz de APEX
-1. Ve a **SQL Workshop > REST Data Services**.
-2. Si la esquina indica *Schema Not Enabled*, haz clic en **Register Schema / Enable Schema**. Define como alias de URL: `gaming`.
-3. Haz clic en **Modules > Create Module**:
-   - **Module Name**: `gaming`
-   - **Base Path**: `gaming/`
-   - **Is Published**: Yes.
-4. Dentro del módulo `gaming`, crea una plantilla **Resource Template**:
-   - **URI Pattern**: `productos/`
-5. Crea los **Handlers** para la plantilla `productos/`:
-   - **GET**: Source Type: `Collection Feed`. Pega la consulta SQL del Endpoint 1.
-   - **POST**: Source Type: `PL/SQL`. Pega el bloque de código PL/SQL del Endpoint 2.
+### Inventario
+
+| Método | Ruta |
+|---|---|
+| `GET` | `/api/inventory` |
+| `GET` | `/api/inventory/:id` |
+| `POST` | `/api/inventory` |
+| `PATCH` | `/api/inventory/:id` |
+| `PATCH` | `/api/inventory/:id/certificate` |
+| `DELETE` | `/api/inventory/:id` |
+
+### Operación comercial
+
+| Método | Ruta |
+|---|---|
+| `GET` | `/api/sales` |
+| `GET` | `/api/sales/:id` |
+| `POST` | `/api/sales` |
+| `POST` | `/api/purchases` |
+| `GET` | `/api/clients` |
+| `POST` | `/api/clients` |
+| `GET` | `/api/providers` |
+| `GET` | `/api/categories` |
+| `GET` | `/api/catalogs` |
+
+### Auditoría y móvil
+
+| Método | Ruta |
+|---|---|
+| `GET` | `/api/audit` |
+| `GET` | `/api/mobile/dashboard` |
+| `GET` | `/api/mobile/scan/:qr_or_id` |
 
 ---
 
-## 4. Conexión con el Servidor Node.js
+## 9. Validación y pruebas realizadas
 
-Para conectar tu servidor Node.js local con los Endpoints ORDS en Oracle Cloud:
+Comando principal:
 
-1. Edita tu archivo `.env` en la raíz del proyecto:
-   ```env
-   PORT=3000
-   DEMO_MODE=false
-   ORDS_INVENTORY_URL=https://<tu-instancia-apex>.oraclecloud.com/ords/<tu_esquema>/gaming/productos/
-   ```
-2. Inicia el servidor:
-   ```bash
-   npm start
-   ```
-3. Abre tu navegador en [http://localhost:3000](http://localhost:3000) para operar el panel.
+```bash
+npm run check
+```
+
+También se validaron:
+
+- Sintaxis de middleware JWT.
+- Sintaxis de rutas de ventas, compras y móvil.
+- Sintaxis de scripts frontend.
+- Login DEMO.
+- `/api/auth/me`.
+- `401` sin token.
+- `403` para acciones no permitidas.
+- Venta multi-línea.
+- Compra multi-línea.
+- Reintento idempotente.
+- `400` con stock insuficiente.
+- Dashboard móvil.
+- Búsqueda por certificado `#GS`.
+- Navegación móvil filtrada por rol.
+- Instalación con `npx cap doctor`.
+
+El modo DEMO no persiste datos al reiniciar el proceso.
+
+---
+
+## 10. Estructura de archivos incorporados
+
+```text
+capacitor.config.json
+
+src/
+├── server.js
+├── middleware/
+│   └── auth.js
+└── routes/
+    ├── sales.js
+    ├── purchases.js
+    └── mobile.js
+
+public/
+├── index.html
+├── login.html
+├── app.js
+├── styles.css
+└── js/
+    ├── auth.js
+    ├── rbac-ui.js
+    ├── sales.js
+    ├── certificates.js
+    ├── mobile-nav.js
+    └── qr-scanner.js
+```
+
+---
+
+## 11. Pendientes antes de producción
+
+- Cambiar las credenciales DEMO.
+- Configurar un `JWT_SECRET` aleatorio y seguro.
+- Usar HTTPS en backend, ORDS y Capacitor.
+- Persistir claves de idempotencia en Oracle.
+- Implementar recuperación y rotación de contraseñas.
+- Añadir rate limiting, CORS restringido y validación formal de payloads.
+- Guardar logs centralizados sin exponer información sensible.
+- Completar pruebas unitarias, integración y concurrencia.
+- Añadir backups y probar restauración.
+- Servir `html5-qrcode` localmente si se requiere operación offline.
+- Definir comprobantes, impuestos, devoluciones y anulaciones según el país.
+- Revisar permisos Oracle y configuración de ORDS en staging.
+- Crear pipeline CI/CD y ambientes separados de desarrollo, staging y producción.
+- Preparar manual de usuario, soporte, SLA y capacitación.
+
+---
+
+## 12. Licencia y entrega
+
+Proyecto privado de Gaming Solutions. Antes de la entrega comercial se deben definir con la empresa:
+
+- Propiedad del código.
+- Licenciamiento.
+- Hosting y dominio.
+- Mantenimiento.
+- Soporte.
+- Tratamiento de datos personales.
+- Alcance de las integraciones.
+- Responsabilidades sobre Oracle APEX, ORDS y backups.

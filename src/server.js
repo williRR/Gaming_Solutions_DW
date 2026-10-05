@@ -3,6 +3,17 @@ require('dotenv').config();
 const path = require('node:path');
 const express = require('express');
 const oracledb = require('oracledb');
+const bcrypt = require('bcryptjs');
+const {
+  configureAuth,
+  authenticateToken,
+  requireRole,
+  loginHandler,
+  meHandler
+} = require('./middleware/auth');
+const { createSalesRouter } = require('./routes/sales');
+const { createPurchasesRouter } = require('./routes/purchases');
+const { createMobileRouter } = require('./routes/mobile');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -24,7 +35,9 @@ const hasOracleCredentials = Boolean(
 
 const oracleUnavailableMessage = 'Configura las variables de conexión Oracle o activa DEMO_MODE=true.';
 
-const poolPromise = demoMode || ordsInventoryUrl || !hasOracleCredentials ? null : oracledb.createPool({
+// ORDS handles operational resources, while this pool also supports API login
+// against USUARIOS when ORDS is enabled.
+const poolPromise = demoMode || !hasOracleCredentials ? null : oracledb.createPool({
   user: process.env.ORACLE_USER,
   password: process.env.ORACLE_PASSWORD,
   connectString: process.env.ORACLE_CONNECT_STRING,
@@ -65,10 +78,30 @@ const demoProviders = [
   { id: 2, name: 'Jorge Mendoza (Coleccionista)' }
 ];
 
-async function withConnection(work) {
+const demoUsers = [
+  { id_usuario: 1, username: 'admin', nombre: 'Carlos Mendoza - Admin Master', rol: 'Administrador', passwordHash: bcrypt.hashSync('admin123', 10) },
+  { id_usuario: 2, username: 'ventas', nombre: 'María González - Ventas', rol: 'Ventas', passwordHash: bcrypt.hashSync('ventas123', 10) },
+  { id_usuario: 3, username: 'almacen', nombre: 'Roberto Silva - Almacén', rol: 'Almacen', passwordHash: bcrypt.hashSync('almacen123', 10) }
+];
+
+configureAuth({ demoMode, query, demoUsers });
+
+async function setOracleActor(connection, user) {
+  if (user?.id_usuario) {
+    await connection.execute(
+      `BEGIN DBMS_SESSION.SET_IDENTIFIER(:id_usuario); END;`,
+      { id_usuario: String(user.id_usuario) }
+    );
+  }
+}
+
+async function withConnection(work, user) {
   const pool = await poolPromise;
   const connection = await pool.getConnection();
-  try { return await work(connection); } finally { await connection.close(); }
+  try {
+    await setOracleActor(connection, user);
+    return await work(connection);
+  } finally { await connection.close(); }
 }
 
 async function query(sql, binds = {}) {
@@ -78,10 +111,11 @@ async function query(sql, binds = {}) {
   });
 }
 
-async function transaction(work) {
+async function transaction(work, user) {
   const pool = await poolPromise;
   const connection = await pool.getConnection();
   try {
+    await setOracleActor(connection, user);
     const result = await work(connection);
     await connection.commit();
     return result;
@@ -90,6 +124,40 @@ async function transaction(work) {
     throw error;
   } finally { await connection.close(); }
 }
+
+app.post('/api/auth/login', loginHandler);
+app.use('/api', (req, res, next) => {
+  if (req.path === '/auth/login' || req.path === '/health') return next();
+  return authenticateToken(req, res, next);
+});
+app.get('/api/auth/me', meHandler);
+app.use('/api/sales', createSalesRouter({
+  demoMode,
+  demoSales,
+  demoCustomers,
+  demoInventory,
+  poolPromise,
+  transaction,
+  postOrdsResource
+}));
+app.use('/api/purchases', createPurchasesRouter({
+  demoMode,
+  demoInventory,
+  poolPromise,
+  transaction,
+  postOrdsResource
+}));
+app.use('/api/mobile', createMobileRouter({
+  demoMode,
+  demoInventory,
+  demoSales,
+  poolPromise,
+  query,
+  getOrdsCollection,
+  getOrdsInventory,
+  normalizeOrdsItem,
+  ordsBaseUrl
+}));
 
 function required(value, field) {
   if (value === undefined || value === null || value === '') throw new Error(`${field} es obligatorio`);
@@ -153,16 +221,17 @@ async function getOrdsCollection(url) {
 }
 
 // ORDS POST transport; forwards a JSON payload and parses the JSON response.
-async function postOrdsResource(resource, payload) {
+async function postOrdsResource(resource, payload, user) {
+  const body = user ? { ...payload, id_usuario: Number(user.id_usuario) } : payload;
   const response = await fetch(`${ordsBaseUrl}${resource}/`, {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': ordsUserAgent },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(10000)
   });
-  const body = await response.text();
-  if (!response.ok) throw new Error(`ORDS respondió HTTP ${response.status}: ${body || 'sin detalle'}`);
-  return body ? JSON.parse(body) : { ok: true };
+  const responseBody = await response.text();
+  if (!response.ok) throw new Error(`ORDS respondió HTTP ${response.status}: ${responseBody || 'sin detalle'}`);
+  return responseBody ? JSON.parse(responseBody) : { ok: true };
 }
 
 // Health Status
@@ -234,7 +303,7 @@ app.get('/api/dashboard', async (_req, res) => {
 });
 
 // READ products: GET /api/inventory proxies the ORDS GET /productos/ collection.
-app.get('/api/inventory', async (_req, res) => {
+app.get('/api/inventory', requireRole(['Administrador', 'Ventas', 'Almacen']), async (_req, res) => {
   if (demoMode) return res.json(demoInventory);
   if (ordsInventoryUrl) {
     try { return res.json(await getOrdsInventory()); } catch (error) { return res.status(502).json({ error: error.message }); }
@@ -255,7 +324,7 @@ app.get('/api/inventory', async (_req, res) => {
 });
 
 // READ one product: GET /api/inventory/:id proxies ORDS GET /productos/:id/.
-app.get('/api/inventory/:id', async (req, res) => {
+app.get('/api/inventory/:id', requireRole(['Administrador', 'Ventas', 'Almacen']), async (req, res) => {
   const productId = Number(req.params.id);
   if (!Number.isInteger(productId) || productId <= 0) return res.status(400).json({ error: 'ID de producto inválido' });
   if (demoMode) {
@@ -271,35 +340,35 @@ app.get('/api/inventory/:id', async (req, res) => {
 });
 
 // READ providers: GET /api/providers proxies ORDS GET /proveedores/.
-app.get('/api/providers', async (_req, res) => {
+app.get('/api/providers', requireRole(['Administrador', 'Almacen']), async (_req, res) => {
   if (demoMode) return res.json(demoProviders);
   try { return res.json(await getOrdsItems('proveedores')); }
   catch (error) { return res.status(502).json({ error: error.message }); }
 });
 
 // READ categories: GET /api/categories proxies ORDS GET /categorias/.
-app.get('/api/categories', async (_req, res) => {
+app.get('/api/categories', requireRole(['Administrador', 'Almacen']), async (_req, res) => {
   if (demoMode) return res.json([]);
   try { return res.json(await getOrdsItems('categorias')); }
   catch (error) { return res.status(502).json({ error: error.message }); }
 });
 
 // READ client contact data: GET /api/clients proxies ORDS GET /clientes/.
-app.get('/api/clients', async (_req, res) => {
+app.get('/api/clients', requireRole(['Administrador', 'Ventas']), async (_req, res) => {
   if (demoMode) return res.json(demoCustomers);
   try { return res.json(await getOrdsItems('clientes')); }
   catch (error) { return res.status(502).json({ error: error.message }); }
 });
 
 // READ sales: GET /api/sales proxies ORDS GET /ventas/consulta/.
-app.get('/api/sales', async (_req, res) => {
+app.get('/api/sales', requireRole(['Administrador', 'Ventas']), async (_req, res) => {
   if (demoMode) return res.json(demoSales);
   try { return res.json(await getOrdsItems('ventas/consulta')); }
   catch (error) { return res.status(502).json({ error: error.message }); }
 });
 
 // READ one sale: GET /api/sales/:id proxies ORDS GET /ventas/consulta/:id/.
-app.get('/api/sales/:id', async (req, res) => {
+app.get('/api/sales/:id', requireRole(['Administrador', 'Ventas']), async (req, res) => {
   const saleId = Number(req.params.id);
   if (!Number.isInteger(saleId) || saleId <= 0) return res.status(400).json({ error: 'ID de venta inválido' });
   if (demoMode) {
@@ -315,16 +384,16 @@ app.get('/api/sales/:id', async (req, res) => {
 });
 
 // READ audit history: GET /api/audit proxies ORDS GET /auditoria/.
-app.get('/api/audit', async (_req, res) => {
+app.get('/api/audit', requireRole(['Administrador']), async (_req, res) => {
   if (demoMode) return res.json([]);
   try { return res.json(await getOrdsItems('auditoria')); }
   catch (error) { return res.status(502).json({ error: error.message }); }
 });
 
 // Support Catalogs (Customers, Providers, Inventory Options)
-app.get('/api/catalogs', async (_req, res) => {
+app.get('/api/catalogs', requireRole(['Administrador', 'Ventas', 'Almacen']), async (_req, res) => {
   if (demoMode) return res.json({ customers: demoCustomers, providers: demoProviders, inventory: demoInventory.filter(item => item.stock > 0) });
-  if (ordsInventoryUrl && !poolPromise) {
+  if (ordsInventoryUrl) {
     try {
       const [customers, providers, inventory] = await Promise.all([
         // ORDS /catalogos/ supplies customer records; providers are not exposed by this endpoint.
@@ -347,7 +416,7 @@ app.get('/api/catalogs', async (_req, res) => {
 });
 
 // CREATE client: POST /api/clients proxies ORDS POST /clientes/.
-app.post('/api/clients', async (req, res) => {
+app.post('/api/clients', requireRole(['Administrador', 'Ventas']), async (req, res) => {
   try {
     const { name, phone, email, address } = req.body;
     required(name, 'Nombre del cliente');
@@ -358,7 +427,7 @@ app.post('/api/clients', async (req, res) => {
     }
     if (ordsInventoryUrl && !poolPromise) {
       try {
-        const result = await postOrdsResource('clientes', { name, phone, email, address });
+        const result = await postOrdsResource('clientes', { name, phone, email, address }, req.user);
         return res.status(201).json(result);
       } catch (error) { return res.status(502).json({ error: error.message }); }
     }
@@ -367,7 +436,7 @@ app.post('/api/clients', async (req, res) => {
 });
 
 // CREATE product: POST /api/inventory forwards product data to ORDS POST /productos/.
-app.post('/api/inventory', async (req, res) => {
+app.post('/api/inventory', requireRole(['Administrador', 'Almacen']), async (req, res) => {
   try {
     const { name, brand, model, type, price, cost, stock } = req.body;
     required(name, 'Nombre');
@@ -387,7 +456,7 @@ app.post('/api/inventory', async (req, res) => {
       return res.status(201).json({ id, certificate });
     }
     if (ordsInventoryUrl && !poolPromise) {
-      const result = await postOrdsResource('productos', { name, brand, model, type: itemType, price: Number(price), cost: cost ? Number(cost) : null, stock: Number(stock) });
+      const result = await postOrdsResource('productos', { name, brand, model, type: itemType, price: Number(price), cost: cost ? Number(cost) : null, stock: Number(stock) }, req.user);
       return res.status(201).json(result);
     }
     const id = await transaction(async connection => {
@@ -408,13 +477,13 @@ app.post('/api/inventory', async (req, res) => {
         { productId, certCode, warranty: itemType === 'LAPTOP' ? 18 : itemType === 'RETRO' ? 6 : 12 }
       );
       return productId;
-    });
+    }, req.user);
     res.status(201).json({ id });
   } catch (error) { res.status(400).json({ error: error.message }); }
 });
 
 // PATCH Update Product
-app.patch('/api/inventory/:id', async (req, res) => {
+app.patch('/api/inventory/:id', requireRole(['Administrador', 'Almacen']), async (req, res) => {
   try {
     const productId = Number(req.params.id);
     const { price, stock, name, cost, description, providerId } = req.body;
@@ -436,20 +505,20 @@ app.patch('/api/inventory/:id', async (req, res) => {
       return res.json({ ok: true });
     }
     if (ordsInventoryUrl && !poolPromise) {
-      try { return res.json(await postOrdsResource(`productos/${productId}/actualizar`, req.body)); }
+      try { return res.json(await postOrdsResource(`productos/${productId}/actualizar`, req.body, req.user)); }
       catch (error) { return res.status(502).json({ error: error.message }); }
     }
     const result = await withConnection(connection => connection.execute(
       `UPDATE PRODUCTOS SET NOMBRE = COALESCE(:name, NOMBRE), PRECIO_VENTA = COALESCE(:price, PRECIO_VENTA), STOCK = COALESCE(:stock, STOCK) WHERE ID_PRODUCTO = :id`,
       { id: productId, name: name || null, price: price === undefined ? null : Number(price), stock: stock === undefined ? null : Number(stock) }
-    ));
+    ), req.user);
     if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ ok: true });
   } catch (error) { res.status(400).json({ error: error.message }); }
 });
 
 // DEACTIVATE product: DELETE /api/inventory/:id proxies ORDS POST /productos/:id/desactivar/.
-app.delete('/api/inventory/:id', async (req, res) => {
+app.delete('/api/inventory/:id', requireRole(['Administrador']), async (req, res) => {
   const productId = Number(req.params.id);
   if (!Number.isInteger(productId) || productId <= 0) return res.status(400).json({ error: 'ID de producto inválido' });
   if (demoMode) {
@@ -459,14 +528,14 @@ app.delete('/api/inventory/:id', async (req, res) => {
     return res.json({ ok: true });
   }
   if (ordsInventoryUrl && !poolPromise) {
-    try { return res.json(await postOrdsResource(`productos/${productId}/desactivar`, {})); }
+    try { return res.json(await postOrdsResource(`productos/${productId}/desactivar`, {}, req.user)); }
     catch (error) { return res.status(502).json({ error: error.message }); }
   }
   return res.status(501).json({ error: 'La baja lógica requiere ORDS.' });
 });
 
 // UPDATE certificate: PATCH /api/inventory/:id/certificate proxies its ORDS POST action.
-app.patch('/api/inventory/:id/certificate', async (req, res) => {
+app.patch('/api/inventory/:id/certificate', requireRole(['Administrador', 'Almacen']), async (req, res) => {
   const productId = Number(req.params.id);
   if (!Number.isInteger(productId) || productId <= 0) return res.status(400).json({ error: 'ID de producto inválido' });
   const { hwPct, aestheticPct, thermalPct, pointsReviewed, warrantyMonths, inspectionDetail, technician } = req.body;
@@ -494,14 +563,14 @@ app.patch('/api/inventory/:id/certificate', async (req, res) => {
     try {
       return res.json(await postOrdsResource(`productos/${productId}/certificado/actualizar`, {
         hwPct, aestheticPct, thermalPct, pointsReviewed, warrantyMonths, inspectionDetail, technician
-      }));
+      }, req.user));
     } catch (error) { return res.status(502).json({ error: error.message }); }
   }
   return res.status(501).json({ error: 'La actualización del certificado requiere ORDS.' });
 });
 
 // POST Register Cash / Manual Sale
-app.post('/api/sales', async (req, res) => {
+app.post('/api/sales', requireRole(['Administrador', 'Ventas']), async (req, res) => {
   try {
     const { customerId, payment, items, notes } = req.body;
     required(customerId, 'Cliente'); required(payment, 'Método de pago');
@@ -532,7 +601,7 @@ app.post('/api/sales', async (req, res) => {
       try {
         const result = await postOrdsResource('ventas', {
           customerId: Number(customerId), payment, total, productId, quantity, price, notes: notes || null
-        });
+        }, req.user);
         return res.status(201).json(result);
       } catch (error) {
         return res.status(502).json({ error: error.message });
@@ -559,13 +628,13 @@ app.post('/api/sales', async (req, res) => {
         );
       }
       return saleId;
-    });
+    }, req.user);
     res.status(201).json({ id });
   } catch (error) { res.status(400).json({ error: error.message }); }
 });
 
 // POST Register Purchase from Supplier
-app.post('/api/purchases', async (req, res) => {
+app.post('/api/purchases', requireRole(['Administrador', 'Almacen']), async (req, res) => {
   try {
     const { providerId, items, notes } = req.body;
     required(providerId, 'Proveedor');
@@ -593,7 +662,7 @@ app.post('/api/purchases', async (req, res) => {
           quantity: item.quantity,
           cost: item.cost,
           notes: notes || null
-        });
+        }, req.user);
         return res.status(201).json(result);
       } catch (error) { return res.status(502).json({ error: error.message }); }
     }
@@ -617,7 +686,7 @@ app.post('/api/purchases', async (req, res) => {
         );
       }
       return purchaseId;
-    });
+    }, req.user);
     res.status(201).json({ id });
   } catch (error) { res.status(400).json({ error: error.message }); }
 });

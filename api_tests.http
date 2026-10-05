@@ -7,10 +7,13 @@
 ### Variables Globales de Entorno
 @baseUrl = http://localhost:3000
 @ordsBaseUrl = https://oracleapex.com/ords/willi_gs/gaming
+@userAgent = Mozilla/5.0 (Windows NT 10.0; Win64; x64)
 
 
 # ==============================================================================
 # 1. SERVIDOR NODE.JS LOCAL (http://localhost:3000)
+# Recomendo usar estos endpoints porque Node.js maneja la conexión interna
+# con Oracle Cloud de forma segura evitando bloqueos WAF/Akamai.
 # ==============================================================================
 
 ### 1.1 Estado de Salud de la API
@@ -100,24 +103,28 @@ Content-Type: application/json
 
 # ==============================================================================
 # 2. ORACLE APEX DIRECTO (ORDS REST Data Services)
+# Nota: Si el WAF (Akamai) de oracleapex.com bloquea POST directo,
+# asegúrate de usar HTTPS e incluir el header User-Agent.
 # ==============================================================================
 
-### 2.1 ORDS: Consultar Inventario Certificado #GS en Oracle Cloud
+### 2.1 ORDS: Consultar Inventario Certificado #GS en Oracle Cloud (GET funciona directo)
 GET {{ordsBaseUrl}}/productos/
 Accept: application/json
+User-Agent: {{userAgent}}
 
-### 2.2 ORDS: Crear Producto e Inspección Técnica en Oracle APEX
+### 2.2 ORDS: Crear Producto e Inspección Técnica en Oracle APEX (POST)
 POST {{ordsBaseUrl}}/productos/
 Content-Type: application/json
+User-Agent: {{userAgent}}
 
 {
-  "name": "Super Nintendo SNES Recapacitada GS",
+  "name": "Super hola  SNES Recapacitada GS",
   "brand": "Nintendo",
-  "model": "SNS-001",
+  "model": "SNS-009",
   "type": "RETRO",
-  "price": 189.99,
-  "cost": 100.00,
-  "stock": 2,
+  "price": 10.00,
+  "cost": 1.00,
+  "stock": 200,
   "description": "Recapacitado con SMD Nichicon y blanqueado UV",
   "hw_pct": 100,
   "aesthetic_pct": 94,
@@ -127,14 +134,17 @@ Content-Type: application/json
 ### 2.3 ORDS: Consultar Métricas Consolidadas del Dashboard
 GET {{ordsBaseUrl}}/dashboard/
 Accept: application/json
+User-Agent: {{userAgent}}
 
 ### 2.4 ORDS: Consultar Lista de Clientes
 GET {{ordsBaseUrl}}/catalogos/
 Accept: application/json
+User-Agent: {{userAgent}}
 
-### 2.5 ORDS: Registrar Venta Directa en Oracle APEX
+### 2.5 ORDS: Registrar Venta Directa en Oracle APEX (POST)
 POST {{ordsBaseUrl}}/ventas/
 Content-Type: application/json
+User-Agent: {{userAgent}}
 
 {
   "customerId": 1,

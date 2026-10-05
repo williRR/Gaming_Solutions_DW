@@ -1,5 +1,7 @@
 const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' });
 let catalogs = { customers: [], providers: [], inventory: [] };
+window.money = money;
+Object.defineProperty(window, 'catalogs', { get: () => catalogs });
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -34,8 +36,9 @@ function renderInventory(items) {
       <td><strong>${money.format(Number(item.price) || 0)}</strong></td>
       <td class="stock">${Number(item.stock) || 0} u.</td>
       <td><span class="state ${item.stock === 0 ? 'out' : item.stock <= 3 ? 'low' : ''}">${escapeHtml(item.status || (item.stock === 0 ? 'Agotado' : 'Disponible'))}</span></td>
-      <td><button class="edit-button" data-edit="${encodeURIComponent(item.id)}">Editar / GS</button></td>
+      <td><button class="edit-button" data-edit="${encodeURIComponent(item.id)}" data-permission="inventoryRead">Editar / GS</button></td>
     </tr>`).join('');
+  window.GSRbac?.applyRoleUI();
 }
 
 function renderSales(items, mode) {
@@ -122,6 +125,7 @@ async function loadDashboard() {
   renderInventory(data.inventory);
   renderSales(data.sales, data.mode);
 }
+window.loadDashboard = loadDashboard;
 
 async function loadCatalogs() {
   const response = await fetch('/api/catalogs');
@@ -138,6 +142,7 @@ async function loadCatalogs() {
   fill('#saleProduct', catalogs.inventory, item => `${item.name} (${item.certificate || '#GS'}) · ${money.format(item.price)} · Stock: ${item.stock}`);
   fill('#purchaseProduct', catalogs.inventory, item => item.name);
 }
+window.loadCatalogs = loadCatalogs;
 
 function openModal(id) {
   document.querySelector(`#${id}`).classList.add('open');
@@ -183,6 +188,7 @@ async function openProductDetails(productId) {
   } catch (error) {
     document.querySelector('#sidebarStatus').textContent = error.message;
   }
+  window.openProductDetails = openProductDetails;
 }
 
 async function submitForm(event) {
@@ -276,6 +282,10 @@ async function boot() {
 document.querySelector('#refresh').addEventListener('click', boot);
 document.querySelector('#catalogRefresh').addEventListener('click', loadModules);
 document.querySelector('#auditRefresh').addEventListener('click', loadModules);
+document.querySelector('#logout').addEventListener('click', () => {
+  window.GSAuth.clearSession();
+  window.location.replace('/login.html');
+});
 document.querySelector('#inventoryRows').addEventListener('click', event => {
   const button = event.target.closest('[data-edit]');
   if (button) openProductDetails(decodeURIComponent(button.dataset.edit));
@@ -295,7 +305,9 @@ document.querySelector('#deactivateProduct').addEventListener('click', async () 
 });
 document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => openModal(button.dataset.open)));
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => closeModal(button.closest('.modal'))));
-document.querySelectorAll('[data-form]').forEach(form => form.addEventListener('submit', submitForm));
+document.querySelectorAll('[data-form]').forEach(form => {
+  if (!['sale', 'purchase'].includes(form.dataset.form)) form.addEventListener('submit', submitForm);
+});
 document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', event => { if (event.target === modal) closeModal(modal); }));
 
 boot();
