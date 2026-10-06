@@ -1,10 +1,10 @@
 (function () {
   const tabs = [
-    { id: 'dashboard', label: 'Resumen', icon: '▦', permission: 'dashboard' },
-    { id: 'inventory', label: 'Inventario', icon: '◈', permission: 'inventoryRead' },
-    { id: 'sales', label: 'Ventas', icon: '↗', permission: 'sales' },
-    { id: 'purchases', label: 'Compras', icon: '↙', permission: 'purchases' },
-    { id: 'audit', label: 'Auditoría', icon: '◌', permission: 'audit' }
+    { id: 'dashboard', path: '/dashboard', label: 'Resumen', icon: '▦', permission: 'dashboard' },
+    { id: 'inventory', path: '/inventario', label: 'Inventario', icon: '◈', permission: 'inventoryRead' },
+    { id: 'sales', path: '/ventas', label: 'Ventas', icon: '↗', permission: 'sales' },
+    { id: 'purchases', path: '/compras', label: 'Compras', icon: '↙', permission: 'purchases' },
+    { id: 'audit', path: '/auditoria', label: 'Auditoría', icon: '◌', permission: 'audit' }
   ];
 
   function isNative() {
@@ -31,12 +31,11 @@
       document.body.appendChild(nav);
     }
     nav.innerHTML = tabs.filter(allowed).map(tab =>
-      `<a href="#${tab.id}" data-mobile-tab="${tab.id}"><span>${tab.icon}</span><small>${tab.label}</small></a>`
+      `<a href="${tab.path}" data-mobile-tab="${tab.id}"><span>${tab.icon}</span><small>${tab.label}</small></a>`
     ).join('');
-    nav.querySelectorAll('[data-mobile-tab]').forEach(link => link.addEventListener('click', () => {
-      nav.querySelectorAll('a').forEach(item => item.classList.remove('active'));
-      link.classList.add('active');
-    }));
+    nav.querySelectorAll('[data-mobile-tab]').forEach(link => {
+      link.classList.toggle('active', window.location.pathname === link.getAttribute('href'));
+    });
   }
 
   function enablePullToRefresh() {

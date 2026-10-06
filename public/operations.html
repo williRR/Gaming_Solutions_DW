@@ -8,11 +8,11 @@
 <body data-module="operations">
   <aside class="sidebar">
     <div class="brand"><span class="brand-mark">GS</span><div><strong>Gaming</strong><small>Solutions</small></div></div>
-    <nav><a href="/"><span>▦</span>Resumen</a><a href="/inventory.html"><span>◈</span>Inventario & #GS</a><a href="/catalog.html"><span>▣</span>Catálogo visual</a><a href="/clients.html"><span>◎</span>Clientes</a><a class="active" href="/operations.html"><span>↗</span>Ventas y compras</a><a href="/audit.html"><span>◌</span>Auditoría BD</a></nav>
+    <nav><a href="/dashboard"><span>▦</span>Resumen</a><a href="/inventario"><span>◈</span>Inventario</a><a href="/catalogo"><span>▣</span>Catálogo</a><a href="/clientes" data-permission="clients"><span>◎</span>Clientes</a><a class="active" href="/ventas" data-permission="sales"><span>↗</span>Ventas</a><a href="/compras" data-permission="purchases"><span>↙</span>Compras</a><a href="/auditoria" data-permission="audit"><span>◌</span>Auditoría</a></nav>
     <div class="sidebar-foot"><span class="pulse"></span><span id="sidebarStatus">Conectando...</span></div>
   </aside>
   <main>
-    <header><div><p class="eyebrow">MÓDULO OPERATIVO / NEGOCIO</p><h1>Ventas y compras</h1></div><div class="avatar">GS</div></header>
+    <header><div><p class="eyebrow">MÓDULO OPERATIVO / NEGOCIO</p><h1>Ventas y compras</h1></div><div class="header-actions"><button class="quick-action" type="button" id="openQrScanner">▣ Escanear QR</button><button class="quick-action cart-action" type="button">🛒 Carrito <span class="cart-badge" data-cart-count>0</span></button><div class="avatar">GS</div></div></header>
     <section class="page-intro"><div><p class="eyebrow">CENTRO DE OPERACIONES</p><p>Registra ventas, controla reabastecimientos y consulta la actividad comercial desde un solo lugar.</p></div></section>
     <section class="operations-grid">
       <article class="panel operation-card">
@@ -32,8 +32,8 @@
         <div class="panel-heading"><div><p class="eyebrow">ENTRADA DE INVENTARIO</p><h3>Registrar compra</h3></div><span class="operation-icon purchase-icon">↙</span></div>
         <form data-form="purchase">
           <div class="form-grid">
-            <label>Proveedor<select name="providerId" id="purchaseProvider" required><option value="">Cargando proveedores...</option></select></label>
-            <label>Producto<select name="productId" id="purchaseProduct" required><option value="">Cargando inventario...</option></select></label>
+            <label>Proveedor<select name="providerId" id="purchaseProvider" required><option value="">Cargando proveedores...</option></select><button class="text-button" type="button" id="addProvider">＋ Agregar nuevo proveedor</button></label>
+            <label>Producto<select name="productId" id="purchaseProduct" required><option value="">Cargando inventario...</option></select><button class="text-button" type="button" id="addProduct">＋ Crear producto nuevo</button></label>
             <label>Cantidad<input name="quantity" type="number" min="1" value="1" required></label>
             <label>Costo unitario (Q)<input name="cost" type="number" min="0" step=".01" required></label>
             <label class="full-field">Notas<input name="notes" maxlength="500"></label>
@@ -46,6 +46,6 @@
     <article class="panel operations-history"><div class="panel-heading"><div><p class="eyebrow">TRAZABILIDAD COMERCIAL</p><h3>Últimas ventas</h3></div><button class="text-button" id="refreshOperations" type="button">Actualizar <span>↻</span></button></div><div id="salesList" class="sales-list"><div class="loading">Cargando ventas...</div></div></article>
     <footer><span>GAMING SOLUTIONS © 2026 · Operaciones</span><a href="/">Volver al dashboard</a></footer>
   </main>
-  <script src="/operations.js"></script>
+  <script src="/js/auth.js"></script><script src="/js/rbac-ui.js"></script><script src="/js/sidebar-nav.js"></script><script src="/operations.js"></script>
 </body>
 </html>

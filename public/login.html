@@ -47,7 +47,9 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || 'No se pudo iniciar sesión');
         window.GSAuth.saveSession(result);
-        window.location.replace('/');
+        const destination = result.user.rol === 'Administrador' ? '/dashboard'
+          : result.user.rol === 'Ventas' ? '/ventas' : '/inventario';
+        window.location.replace(destination);
       } catch (error) {
         message.textContent = error.message;
       }

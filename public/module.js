@@ -9,6 +9,6 @@ async function start() {
     if (module === 'operations') document.querySelector('#salesList').innerHTML = (await get('/api/sales')).map(item => `<div class="sale"><div class="sale-info"><span class="sale-name">${esc(item.customer || 'Cliente')}</span><span class="sale-date">Venta #${esc(item.id)} · ${esc(item.date)}</span></div><div class="sale-meta"><strong class="sale-total">${money.format(Number(item.total) || 0)}</strong><span class="sale-payment">${esc(item.payment)}</span></div></div>`).join('');
     if (module === 'audit') document.querySelector('#auditList').innerHTML = (await get('/api/audit')).map(item => `<div class="audit-entry"><strong>${esc(item.accion || item.action || item.EVENTO || 'Evento registrado')}</strong><small>${esc(item.fecha || item.date || item.FECHA_EVENTO || '')}</small></div>`).join('') || '<div class="empty-state">No hay eventos disponibles.</div>';
     document.querySelector('#sidebarStatus').textContent = 'Apex / ORDS Activo';
-  } catch (error) { document.querySelector('#sidebarStatus').textContent = error.message; }
+  } catch (error) { const status = document.querySelector('#sidebarStatus'); if (status) status.textContent = error.message; }
 }
 start();
