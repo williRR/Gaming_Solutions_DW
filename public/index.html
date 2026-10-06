@@ -33,14 +33,70 @@
         <p class="eyebrow">EQUIPO GAMER REAL · REVISADO PIEZA POR PIEZA</p>
         <h2>Transparencia total<br><em>Garantía por escrito.</em></h2>
       </div>
-      <p class="hero-note">Consolas Next-Gen, Laptops Gamer de alto rendimiento y Clásicos Retro Restaurados a mano con Certificado de Inspección #GS.</p>
+      <div class="hero-summary">
+        <span class="hero-badge">Operación activa</span>
+        <strong>Inventario certificado</strong>
+        <p>Control de stock, ventas y garantías desde un único panel administrativo.</p>
+      </div>
     </section>
 
-    <section class="metrics">
-      <article><span class="metric-label">Stock Certificado en Inventario</span><strong id="metricInventory">--</strong><span class="metric-detail positive">● Catálogo revisado (+30 pts)</span></article>
-      <article><span class="metric-label">Ventas del Mes (Efectivo/Transf)</span><strong id="metricSales">--</strong><span class="metric-detail positive">↑ 14.5% vs. mes anterior</span></article>
-      <article><span class="metric-label">Stock bajo o por agotar</span><strong id="metricLowStock">--</strong><span class="metric-detail warning">Requiere reabastecimiento</span></article>
-      <article data-permission="clients"><span class="metric-label">Clientes Registrados</span><strong id="metricCustomers">--</strong><span class="metric-detail">Base activa de clientes</span></article>
+    <section class="metrics" aria-label="Indicadores principales">
+      <article class="metric-card metric-primary">
+        <div><span class="metric-label">Stock certificado</span><strong id="metricInventory">--</strong></div>
+        <span class="metric-trend positive"><span>↗</span> 30 pts. control GS</span>
+      </article>
+      <article class="metric-card">
+        <div><span class="metric-label">Ventas del mes</span><strong id="metricSales">--</strong></div>
+        <span class="metric-trend positive"><span>↗</span> 14.5% vs. mes anterior</span>
+      </article>
+      <article class="metric-card">
+        <div><span class="metric-label">Productos por agotar</span><strong id="metricLowStock">--</strong></div>
+        <span class="metric-trend warning"><span>!</span> Requiere atención</span>
+      </article>
+      <article class="metric-card" data-permission="clients">
+        <div><span class="metric-label">Clientes registrados</span><strong id="metricCustomers">--</strong></div>
+        <span class="metric-trend neutral"><span>◎</span> Base activa</span>
+      </article>
+    </section>
+
+    <section class="dashboard-overview" aria-label="Resumen operativo">
+      <article class="panel overview-panel overview-rank">
+        <div class="panel-heading compact">
+          <div><p class="eyebrow">RENDIMIENTO OPERATIVO</p><h3>Estado de la operación</h3></div>
+          <span class="status-pill"><span class="status-dot"></span>En línea</span>
+        </div>
+        <div class="performance-meter" aria-label="Calidad de la operación">
+          <div class="performance-meter-fill" style="width: 82%"><span>82%</span></div>
+        </div>
+        <div class="overview-stats">
+          <div><strong>96%</strong><span>Productos con certificado</span></div>
+          <div><strong>2.4 h</strong><span>Promedio de atención</span></div>
+          <div><strong>12</strong><span>Nuevos registros</span></div>
+        </div>
+      </article>
+
+      <article class="panel overview-panel overview-activity">
+        <div class="panel-heading compact">
+          <div><p class="eyebrow">ACTIVIDAD RECIENTE</p><h3>Últimos movimientos</h3></div>
+          <button class="text-button" id="auditRefresh" type="button">Ver todo <span>→</span></button>
+        </div>
+        <ul class="activity-list" id="dashboardActivity">
+          <li><span class="activity-icon sale-icon">↗</span><div><strong>Venta registrada</strong><small>Consola Sony · Hace 22 min</small></div><span class="activity-value">Q 4,899</span></li>
+          <li><span class="activity-icon inventory-icon">◈</span><div><strong>Inventario actualizado</strong><small>Laptop ASUS · Hace 1 hora</small></div><span class="activity-value">+3 unidades</span></li>
+          <li><span class="activity-icon audit-icon">◌</span><div><strong>Certificado revisado</strong><small>Retro Nintendo · Hace 2 horas</small></div><span class="activity-value">96% válido</span></li>
+        </ul>
+      </article>
+
+      <article class="panel overview-panel overview-actions">
+        <div class="panel-heading compact">
+          <div><p class="eyebrow">ACCIONES PRIORITARIAS</p><h3>Operación rápida</h3></div>
+        </div>
+        <div class="action-stack">
+          <button data-open="inventoryModal" data-permission="inventoryWrite"><span>＋</span>Registrar nuevo producto</button>
+          <button data-open="saleModal" data-permission="sales"><span>↗</span>Registrar venta</button>
+          <button data-open="purchaseModal" data-permission="purchases"><span>↙</span>Registrar compra</button>
+        </div>
+      </article>
     </section>
 
     <section class="content-grid">
@@ -69,7 +125,6 @@
         </div>
       </article>
 
-      <article class="panel sales-panel" id="sales">
       <article class="panel sales-panel" id="sales" data-permission="sales">
         <div class="panel-heading">
           <div><p class="eyebrow">ACTIVIDAD DE VENTAS</p><h3>Últimas Operaciones</h3></div>
