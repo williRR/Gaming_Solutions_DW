@@ -36,7 +36,7 @@
     if (isApiRequest && token) headers.set('Authorization', `Bearer ${token}`);
 
     const response = await originalFetch(input, { ...init, headers });
-    if (isApiRequest && (response.status === 401 || response.status === 403)) goToLogin();
+    if (isApiRequest && response.status === 401) goToLogin();
     return response;
   };
 
