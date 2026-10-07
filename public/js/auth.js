@@ -13,6 +13,7 @@
   }
 
   function saveSession(data) {
+    if (!data?.token || !data?.user) throw new Error('Respuesta de sesión inválida');
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     window.dispatchEvent(new CustomEvent('gs:auth-ready', { detail: data.user }));
@@ -34,7 +35,6 @@
     const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined));
     const token = getToken();
     if (isApiRequest && token) headers.set('Authorization', `Bearer ${token}`);
-
     const response = await originalFetch(input, { ...init, headers });
     if (isApiRequest && response.status === 401) goToLogin();
     return response;

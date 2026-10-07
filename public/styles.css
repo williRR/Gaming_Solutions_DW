@@ -12,6 +12,13 @@ nav{display:grid;gap:8px}
 nav a{color:#9ea5aa;text-decoration:none;padding:13px 11px;font-size:14px;display:flex;gap:12px;align-items:center}
 nav a span{font-size:18px;width:20px;text-align:center}
 nav a.active,nav a:hover{color:var(--lime);background:#2b3135}
+.quick-action{border:1px solid var(--lime);background:#202a24;color:#f4f7f2;border-radius:8px;padding:9px 12px;font-weight:600;cursor:pointer}
+.cart-action{position:relative;border-color:#526176;background:#252d38}
+.cart-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--lime);color:#121713;font-size:12px}
+.qr-action{background:var(--coral);border-color:var(--coral);color:#fff;text-decoration:none;display:inline-flex;align-items:center}
+.cart-action span{background:#e64b4b;color:#fff;border-radius:10px;padding:1px 6px}
+.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.alert-list{display:grid;gap:0}.alert-row{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:13px 0;font-size:12px}.alert-row strong{color:var(--coral);font-family:var(--mono)}
 .sidebar-foot{margin-top:auto;color:#858d91;font:10px var(--mono);display:flex;gap:8px;align-items:center}
 .pulse{width:7px;height:7px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 4px #364233}
 main{margin-left:238px;padding:30px 5.5vw 25px;width:calc(100% - 238px);max-width:1500px;min-width:0}

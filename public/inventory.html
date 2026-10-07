@@ -9,11 +9,11 @@
 </head>
 <body>
   <aside class="sidebar"><div class="brand"><span class="brand-mark">GS</span><div><strong>Gaming</strong><small>Solutions</small></div></div>
-    <nav><a href="/"><span>▦</span>Resumen</a><a class="active" href="/inventory.html"><span>◈</span>Inventario & #GS</a><a href="/catalog.html"><span>▣</span>Catálogo visual</a><a href="/clients.html"><span>◎</span>Clientes</a><a href="/operations.html"><span>↗</span>Ventas y compras</a><a href="/audit.html"><span>◌</span>Auditoría BD</a></nav>
+    <nav><a href="/dashboard"><span>▦</span>Resumen</a><a class="active" href="/inventario"><span>◈</span>Inventario</a><a href="/catalogo"><span>▣</span>Catálogo</a><a href="/clientes" data-permission="clients"><span>◎</span>Clientes</a><a href="/ventas" data-permission="sales"><span>↗</span>Ventas</a><a href="/compras" data-permission="purchases"><span>↙</span>Compras</a><a href="/auditoria" data-permission="audit"><span>◌</span>Auditoría</a></nav>
     <div class="sidebar-foot"><span class="pulse"></span><span id="sidebarStatus">Conectando...</span></div>
   </aside>
   <main>
-    <header><div><p class="eyebrow">MÓDULO OPERATIVO / INVENTARIO</p><h1>Productos & certificados GS</h1></div><div class="header-actions"><button class="icon-button" id="refresh" title="Actualizar">↻</button><div class="avatar">GS</div></div></header>
+    <header><div><p class="eyebrow">MÓDULO OPERATIVO / INVENTARIO</p><h1>Productos & certificados GS</h1></div><div class="header-actions"><button class="quick-action qr-action" id="openQrScanner" type="button">▣ Escanear QR</button><button class="icon-button" id="refresh" title="Actualizar">↻</button><div class="avatar">GS</div></div></header>
     <section class="page-intro"><p>Administra precios, existencias, inspecciones y bajas lógicas desde una vista dedicada.</p><button class="submit compact" data-open="inventoryModal">＋ Registrar producto</button></section>
     <article class="panel inventory-page-panel"><div class="table-wrap"><table><thead><tr><th>Producto & certificado</th><th>Categoría</th><th>Inspección</th><th>Precio</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="inventoryRows"><tr><td colspan="7" class="loading">Cargando inventario...</td></tr></tbody></table></div></article>
     <div class="modal" id="productDetailsModal"><section class="modal-card"><button type="button" class="close" data-close>×</button><p class="eyebrow">GESTIÓN DE PRODUCTO</p><h3 id="productDetailsTitle">Editar producto</h3>
@@ -22,6 +22,7 @@
       <button class="submit danger-button" id="deactivateProduct" type="button">Desactivar producto (baja lógica)</button>
     </section></div>
     <div class="modal" id="inventoryModal"><form class="modal-card" data-form="inventory"><button type="button" class="close" data-close>×</button><p class="eyebrow">INVENTARIO</p><h3>Registrar producto</h3><div class="form-grid"><label>Nombre<input name="name" required></label><label>Marca<input name="brand"></label><label>Modelo<input name="model"></label><label>Tipo<select name="type"><option value="NEXT_GEN">Consola Next-Gen</option><option value="LAPTOP">Laptop Gamer</option><option value="RETRO">Retro</option></select></label><label>Precio de venta (Q)<input name="price" type="number" min="0" step=".01" required></label><label>Costo (Q)<input name="cost" type="number" min="0" step=".01"></label><label>Stock<input name="stock" type="number" min="0" required></label></div><button class="submit" type="submit">Guardar producto</button><p class="form-message"></p></form></div>
-    <footer><span>GAMING SOLUTIONS © 2026 · Inventario</span><a href="/">Volver al dashboard</a></footer>
-  </main><script src="/inventory.js"></script>
+    <div class="modal" id="qrScannerModal"><section class="modal-card"><button type="button" class="close" id="closeQrScanner">×</button><p class="eyebrow">LECTOR #GS</p><h3>Escanear producto o certificado</h3><div id="qrReader"></div><form id="scanManualForm"><label>Código<input name="code" placeholder="#GS-2201 o ID" required></label><button class="submit" type="submit">Buscar</button></form><p id="scanResult" class="form-message"></p></section></div>
+    <footer><span>GAMING SOLUTIONS © 2026 · Inventario</span><a href="/dashboard">Volver al resumen</a></footer>
+  </main>  <script src="/js/auth.js"></script><script src="/js/rbac-ui.js"></script><script src="/js/sidebar-nav.js"></script><script src="/inventory.js"></script><script src="/js/qr-scanner.js"></script><script>if (new URLSearchParams(location.search).get('scanner') === '1') window.GSQrScanner?.open();</script>
 </body></html>

@@ -314,3 +314,7 @@ document.querySelectorAll('[data-form]').forEach(form => {
 document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', event => { if (event.target === modal) closeModal(modal); }));
 
 boot();
+if (new URLSearchParams(window.location.search).get('scanner') === '1') {
+  window.addEventListener('gs:auth-ready', () => window.GSQrScanner?.open(), { once: true });
+  if (window.GSAuth?.getUser()) window.GSQrScanner?.open();
+}

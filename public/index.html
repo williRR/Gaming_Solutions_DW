@@ -1,335 +1,47 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Gaming Solutions | Panel de Control & Certificación GS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/forms.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resumen | Gaming Solutions</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<body data-page="dashboard">
   <aside class="sidebar">
     <div class="brand"><span class="brand-mark">GS</span><div><strong>Gaming</strong><small>Solutions</small></div></div>
     <nav>
-      <a class="active" href="#dashboard"><span>▦</span>Resumen</a>
-      <a href="#inventory"><span>◈</span>Inventario & #GS</a>
-      <a href="#catalog"><span>▣</span>Catálogo visual</a>
-      <a href="#clients" data-permission="clients"><span>◎</span>Clientes</a>
-      <a href="#sales" data-permission="sales"><span>↗</span>Ventas Efectivo</a>
-      <a href="#purchases" data-permission="purchases"><span>↙</span>Compras</a>
-      <a href="#audit" data-permission="audit"><span>◌</span>Auditoría BD</a>
+      <a class="active" href="/dashboard"><span>▦</span>Resumen</a>
+      <a href="/inventario"><span>◈</span>Inventario</a>
+      <a href="/catalogo"><span>▣</span>Catálogo</a>
+      <a href="/clientes" data-permission="clients"><span>◎</span>Clientes</a>
+      <a href="/ventas" data-permission="sales"><span>↗</span>Ventas</a>
+      <a href="/compras" data-permission="purchases"><span>↙</span>Compras</a>
+      <a href="/auditoria" data-permission="audit"><span>◌</span>Auditoría</a>
     </nav>
-    <div class="sidebar-foot"><span class="pulse"></span><span id="sidebarStatus">Apex / ORDS Activo</span></div>
+    <div class="sidebar-foot"><span class="pulse"></span><span id="sidebarStatus">Cargando...</span></div>
   </aside>
-
   <main>
     <header>
-      <div><p class="eyebrow">PANEL ADMINISTRATIVO GAMER / <span id="connectionMode">DEMO</span></p><h1>Control Center #GS</h1></div>
-      <div class="header-actions"><button class="icon-button" title="Actualizar datos" id="refresh">↻</button><div><strong data-user-name></strong><small data-user-role></small></div><button class="icon-button" title="Cerrar sesión" id="logout">⇥</button><div class="avatar">GS</div></div>
+      <div><p class="eyebrow">PANEL ADMINISTRATIVO / <span id="connectionMode">DEMO</span></p><h1>Resumen operativo</h1></div>
+      <div class="header-actions">
+        <a class="quick-action qr-action" href="/inventario?scanner=1" title="Abrir escáner QR">▣ Escanear QR</a>
+        <div><strong data-user-name></strong><small data-user-role></small></div>
+        <button class="icon-button" id="logout" title="Cerrar sesión">⇥</button><div class="avatar">GS</div>
+      </div>
     </header>
-
-    <section class="hero" id="dashboard">
-      <div>
-        <p class="eyebrow">EQUIPO GAMER REAL · REVISADO PIEZA POR PIEZA</p>
-        <h2>Transparencia total<br><em>Garantía por escrito.</em></h2>
-      </div>
-      <div class="hero-summary">
-        <span class="hero-badge">Operación activa</span>
-        <strong>Inventario certificado</strong>
-        <p>Control de stock, ventas y garantías desde un único panel administrativo.</p>
-      </div>
+    <section class="page-intro"><div><p class="eyebrow">DASHBOARD</p><p>Métricas clave, alertas de stock y actividad reciente. Selecciona un módulo en el menú para operar.</p></div></section>
+    <section class="metrics">
+      <article><span class="metric-label">Stock total</span><strong id="metricInventory">--</strong><span class="metric-detail">Unidades disponibles</span></article>
+      <article><span class="metric-label">Ventas del mes</span><strong id="metricSales">--</strong><span class="metric-detail positive">Ingresos registrados</span></article>
+      <article><span class="metric-label">Stock bajo</span><strong id="metricLowStock">--</strong><span class="metric-detail warning">Requiere reabastecimiento</span></article>
+      <article data-permission="clients"><span class="metric-label">Clientes</span><strong id="metricCustomers">--</strong><span class="metric-detail">Base activa</span></article>
     </section>
-
-    <section class="metrics" aria-label="Indicadores principales">
-      <article class="metric-card metric-primary">
-        <div><span class="metric-label">Stock certificado</span><strong id="metricInventory">--</strong></div>
-        <span class="metric-trend positive"><span>↗</span> 30 pts. control GS</span>
-      </article>
-      <article class="metric-card">
-        <div><span class="metric-label">Ventas del mes</span><strong id="metricSales">--</strong></div>
-        <span class="metric-trend positive"><span>↗</span> 14.5% vs. mes anterior</span>
-      </article>
-      <article class="metric-card">
-        <div><span class="metric-label">Productos por agotar</span><strong id="metricLowStock">--</strong></div>
-        <span class="metric-trend warning"><span>!</span> Requiere atención</span>
-      </article>
-      <article class="metric-card" data-permission="clients">
-        <div><span class="metric-label">Clientes registrados</span><strong id="metricCustomers">--</strong></div>
-        <span class="metric-trend neutral"><span>◎</span> Base activa</span>
-      </article>
+    <section class="dashboard-grid">
+      <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ALERTAS</p><h3>Productos por reabastecer</h3></div><a href="/inventario">Ver inventario →</a></div><div id="lowStockList" class="alert-list"><div class="loading">Cargando alertas...</div></div></article>
+      <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ACTIVIDAD</p><h3>Ventas recientes</h3></div><a href="/ventas" data-permission="sales">Ver ventas →</a></div><div id="salesList" class="sales-list"><div class="loading">Cargando ventas...</div></div></article>
     </section>
-
-    <section class="dashboard-overview" aria-label="Resumen operativo">
-      <article class="panel overview-panel overview-rank">
-        <div class="panel-heading compact">
-          <div><p class="eyebrow">RENDIMIENTO OPERATIVO</p><h3>Estado de la operación</h3></div>
-          <span class="status-pill"><span class="status-dot"></span>En línea</span>
-        </div>
-        <div class="performance-meter" aria-label="Calidad de la operación">
-          <div class="performance-meter-fill" style="width: 82%"><span>82%</span></div>
-        </div>
-        <div class="overview-stats">
-          <div><strong>96%</strong><span>Productos con certificado</span></div>
-          <div><strong>2.4 h</strong><span>Promedio de atención</span></div>
-          <div><strong>12</strong><span>Nuevos registros</span></div>
-        </div>
-      </article>
-
-      <article class="panel overview-panel overview-activity">
-        <div class="panel-heading compact">
-          <div><p class="eyebrow">ACTIVIDAD RECIENTE</p><h3>Últimos movimientos</h3></div>
-          <button class="text-button" id="auditRefresh" type="button">Ver todo <span>→</span></button>
-        </div>
-        <ul class="activity-list" id="dashboardActivity">
-          <li><span class="activity-icon sale-icon">↗</span><div><strong>Venta registrada</strong><small>Consola Sony · Hace 22 min</small></div><span class="activity-value">Q 4,899</span></li>
-          <li><span class="activity-icon inventory-icon">◈</span><div><strong>Inventario actualizado</strong><small>Laptop ASUS · Hace 1 hora</small></div><span class="activity-value">+3 unidades</span></li>
-          <li><span class="activity-icon audit-icon">◌</span><div><strong>Certificado revisado</strong><small>Retro Nintendo · Hace 2 horas</small></div><span class="activity-value">96% válido</span></li>
-        </ul>
-      </article>
-
-      <article class="panel overview-panel overview-actions">
-        <div class="panel-heading compact">
-          <div><p class="eyebrow">ACCIONES PRIORITARIAS</p><h3>Operación rápida</h3></div>
-        </div>
-        <div class="action-stack">
-          <button data-open="inventoryModal" data-permission="inventoryWrite"><span>＋</span>Registrar nuevo producto</button>
-          <button data-open="saleModal" data-permission="sales"><span>↗</span>Registrar venta</button>
-          <button data-open="purchaseModal" data-permission="purchases"><span>↙</span>Registrar compra</button>
-        </div>
-      </article>
-    </section>
-
-    <section class="content-grid">
-      <article class="panel inventory-panel" id="inventory">
-        <div class="panel-heading">
-          <div><p class="eyebrow">INVENTARIO & INSPECCIÓN TÉCNICA</p><h3>Productos & Certificados #GS</h3></div>
-          <div class="panel-actions"><button class="text-button" id="openQrScanner">Escanear QR</button><button class="text-button" data-open="inventoryModal" data-permission="inventoryWrite">Registrar Nuevo <span>→</span></button></div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Producto & Certificado</th>
-                <th>Categoría</th>
-                <th>Métricas de Inspección</th>
-                <th>Precio Venta</th>
-                <th>Stock</th>
-                <th>Estado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="inventoryRows">
-              <tr><td colspan="7" class="loading">Cargando catálogo con certificados #GS desde Oracle...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-
-      <article class="panel sales-panel" id="sales" data-permission="sales">
-        <div class="panel-heading">
-          <div><p class="eyebrow">ACTIVIDAD DE VENTAS</p><h3>Últimas Operaciones</h3></div>
-          <button class="text-button" data-open="saleModal" data-permission="sales">Nueva Venta <span>→</span></button>
-        </div>
-        <div id="salesList" class="sales-list"><div class="loading">Cargando registro de ventas...</div></div>
-      </article>
-    </section>
-
-    <section class="module-grid" id="catalog">
-      <article class="panel">
-        <div class="panel-heading">
-          <div><p class="eyebrow">CATÁLOGO MULTIMEDIA</p><h3>Productos destacados</h3></div>
-          <button class="text-button" id="catalogRefresh" type="button">Actualizar <span>↻</span></button>
-        </div>
-        <div class="product-gallery" id="productGallery"><div class="loading">Cargando catálogo visual...</div></div>
-      </article>
-      <article class="panel" id="categories">
-        <div class="panel-heading">
-          <div><p class="eyebrow">CLASIFICACIÓN</p><h3>Categorías</h3></div>
-        </div>
-        <div class="category-list" id="categoryList"><div class="loading">Cargando categorías...</div></div>
-      </article>
-    </section>
-
-    <section class="module-grid" id="clients">
-      <article class="panel">
-        <div class="panel-heading">
-          <div><p class="eyebrow">CRM OPERATIVO</p><h3>Clientes registrados</h3></div>
-          <button class="text-button" data-open="clientModal" type="button">Nuevo cliente <span>→</span></button>
-        </div>
-        <div class="table-wrap">
-          <table><thead><tr><th>Cliente</th><th>Contacto</th><th>Dirección</th></tr></thead>
-            <tbody id="clientRows"><tr><td colspan="3" class="loading">Cargando clientes...</td></tr></tbody>
-          </table>
-        </div>
-      </article>
-      <article class="panel" id="audit">
-        <div class="panel-heading">
-          <div><p class="eyebrow">TRAZABILIDAD</p><h3>Auditoría de cambios</h3></div>
-          <button class="text-button" id="auditRefresh" type="button">Actualizar <span>↻</span></button>
-        </div>
-        <div class="audit-list" id="auditList"><div class="loading">Cargando bitácora...</div></div>
-      </article>
-    </section>
-
-    <section class="quick-actions" id="purchases">
-      <div><p class="eyebrow">ACCIONES RÁPIDAS</p><h3>Operación del Negocio</h3></div>
-      <div class="action-buttons">
-        <button data-open="inventoryModal" data-permission="inventoryWrite"><span>＋</span>Registrar Hardware + Certificado</button>
-        <button data-open="saleModal" data-permission="sales"><span>↗</span>Registrar Venta (Efectivo)</button>
-        <button data-open="purchaseModal" data-permission="purchases"><span>↙</span>Registrar Compra a Proveedor</button>
-      </div>
-    </section>
-
-    <div class="modal" id="inventoryModal" data-permission="inventoryWrite">
-      <form class="modal-card" data-form="inventory">
-        <button type="button" class="close" data-close>×</button>
-        <p class="eyebrow">INVENTARIO & CERTIFICACIÓN</p>
-        <h3>Registrar Producto Gamer</h3>
-        <div class="form-grid">
-          <label>Nombre del Producto<input name="name" placeholder="Ej. PlayStation 5 Slim / Laptop ROG" required></label>
-          <label>Marca<input name="brand" placeholder="Ej. Sony, ASUS, Nintendo"></label>
-          <label>Modelo<input name="model" placeholder="Ej. CFI-2015, G614JI"></label>
-          <label>Categoría / Tipo Hardware
-            <select name="type">
-              <option value="NEXT_GEN">Consola Next-Gen (12M Garantía)</option>
-              <option value="LAPTOP">Laptop Gamer (18M Garantía)</option>
-              <option value="RETRO">Retro Restoration (6M Garantía)</option>
-            </select>
-          </label>
-          <label>Precio de Venta (Q)<input name="price" type="number" min="0" step="0.01" required></label>
-          <label data-permission="costs">Precio de Compra (Q)<input name="cost" type="number" min="0" step="0.01"></label>
-          <label>Stock Inicial<input name="stock" type="number" min="0" required></label>
-        </div>
-        <button class="submit" type="submit">Guardar Producto & Generar Certificado #GS</button>
-        <p class="form-message"></p>
-      </form>
-    </div>
-
-    <div class="modal" id="productDetailsModal">
-      <section class="modal-card">
-        <button type="button" class="close" data-close aria-label="Cerrar">×</button>
-        <p class="eyebrow">GESTION DE PRODUCTO</p>
-        <h3 id="productDetailsTitle">Editar producto</h3>
-        <form data-form="product-update" data-permission="inventoryWrite">
-          <input name="productId" type="hidden">
-          <div class="form-grid">
-            <label>Nombre<input name="name" required></label>
-            <label>Precio de Venta (Q)<input name="price" type="number" min="0" step="0.01" required></label>
-            <label data-permission="costs">Precio de Compra (Q)<input name="cost" type="number" min="0" step="0.01" required></label>
-            <label>Stock<input name="stock" type="number" min="0" step="1" required></label>
-          </div>
-          <button class="submit" type="submit">Guardar cambios</button>
-          <p class="form-message"></p>
-        </form>
-        <form data-form="certificate-update" data-permission="inventoryWrite">
-          <p class="eyebrow">CERTIFICADO #GS</p>
-          <input name="productId" type="hidden">
-          <div class="form-grid">
-            <label>Hardware original (%)<input name="hwPct" type="number" min="0" max="100" step="1" required></label>
-            <label>Estado estetico (%)<input name="aestheticPct" type="number" min="0" max="100" step="1" required></label>
-            <label>Rendimiento termico (%)<input name="thermalPct" type="number" min="0" max="100" step="1" required></label>
-            <label>Garantia (meses)<input name="warrantyMonths" type="number" min="0" step="1" required></label>
-            <label>Puntos revisados<input name="pointsReviewed" type="number" min="0" step="1"></label>
-            <label>Tecnico responsable<input name="technician" type="text"></label>
-            <label>Detalle de inspeccion<input name="inspectionDetail" type="text"></label>
-          </div>
-          <button class="submit" type="submit">Actualizar certificado</button>
-          <p class="form-message"></p>
-        </form>
-        <button class="text-button" id="printCertificate" type="button">Imprimir certificado #GS</button>
-        <button class="submit danger-button" id="deactivateProduct" data-role="Administrador" type="button">Desactivar producto (baja lógica)</button>
-      </section>
-    </div>
-
-    <div class="modal" id="saleModal" data-permission="sales">
-      <form class="modal-card" data-form="sale">
-        <button type="button" class="close" data-close>×</button>
-        <p class="eyebrow">REGISTRO DE VENTA</p>
-        <h3>Venta en Efectivo / Transferencia</h3>
-        <div class="form-grid">
-          <label>Cliente<select name="customerId" id="saleCustomer" required></select></label>
-          <label>Método de Pago
-            <select name="payment">
-              <option value="EFECTIVO">EFECTIVO</option>
-              <option value="TRANSFERENCIA">TRANSFERENCIA BANCARIA</option>
-              <option value="TARJETA">TARJETA DÉBITO/CRÉDITO</option>
-            </select>
-          </label>
-          <label>Producto Certificado<select id="saleProduct" required></select></label>
-          <label>Cantidad<input id="saleQuantity" type="number" min="1" value="1" required></label>
-        </div>
-        <button class="text-button" id="addSaleItem" type="button">Agregar al carrito</button>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
-            <tbody id="saleCartRows"><tr><td colspan="5">El carrito está vacío</td></tr></tbody>
-          </table>
-        </div>
-        <p>Total: <strong id="saleCartTotal">$0.00</strong></p>
-        <button class="submit" type="submit">Confirmar y Emitir Garantía</button>
-        <p class="form-message"></p>
-      </form>
-    </div>
-
-    <div class="modal" id="purchaseModal" data-permission="purchases">
-      <form class="modal-card" data-form="purchase">
-        <button type="button" class="close" data-close>×</button>
-        <p class="eyebrow">REABASTECIMIENTO</p>
-        <h3>Registrar Compra a Proveedor</h3>
-        <div class="form-grid">
-          <label>Proveedor<select name="providerId" id="purchaseProvider" required></select></label>
-          <label>Producto<select name="productId" id="purchaseProduct" required></select></label>
-          <label>Cantidad<input name="quantity" type="number" min="1" value="1" required></label>
-          <label>Costo Unitario (Q)<input name="cost" type="number" min="0" step="0.01" required></label>
-          <label>Notas<input name="notes" type="text" maxlength="500"></label>
-        </div>
-
-        <button class="submit" type="submit">Confirmar Reabastecimiento</button>
-        <p class="form-message"></p>
-      </form>
-    </div>
-
-    <div class="modal" id="clientModal">
-      <form class="modal-card" data-form="client">
-        <button type="button" class="close" data-close>×</button>
-        <p class="eyebrow">CRM OPERATIVO</p>
-        <h3>Registrar cliente</h3>
-        <div class="form-grid">
-          <label>Nombre completo<input name="name" maxlength="150" required></label>
-          <label>Teléfono<input name="phone" maxlength="30"></label>
-          <label>Correo electrónico<input name="email" type="email" maxlength="100"></label>
-          <label>Dirección<input name="address" maxlength="250"></label>
-        </div>
-        <button class="submit" type="submit">Guardar cliente</button>
-        <p class="form-message"></p>
-      </form>
-    </div>
-
-    <div class="modal" id="qrScannerModal">
-      <section class="modal-card qr-modal-card">
-        <button type="button" class="close" id="closeQrScanner" aria-label="Cerrar">×</button>
-        <p class="eyebrow">LECTOR MÓVIL #GS</p>
-        <h3>Escanear producto o certificado</h3>
-        <div id="qrReader"></div>
-        <form id="scanManualForm" class="form-grid">
-          <label>Código manual<input name="code" placeholder="#GS-2201 o ID del producto" required></label>
-          <button class="submit" type="submit">Buscar código</button>
-        </form>
-        <p id="scanResult" class="form-message"></p>
-      </section>
-    </div>
-
-    <footer>
-      <span>GAMING SOLUTIONS © 2026 · Panel de Administración</span>
-      <span>Oracle APEX + ORDS REST API Ready</span>
-    </footer>
+    <footer><span>GAMING SOLUTIONS © 2026 · Resumen</span></footer>
   </main>
-  <script src="/js/auth.js"></script>
-  <script src="/js/rbac-ui.js"></script>
-  <script src="/js/sales.js"></script>
-  <script src="/js/certificates.js"></script>
-  <script src="/js/qr-scanner.js"></script>
-  <script src="/js/mobile-nav.js"></script>
-  <script src="/app.js"></script>
+  <script src="/js/auth.js"></script><script src="/js/rbac-ui.js"></script><script src="/js/sidebar-nav.js"></script><script src="/dashboard.js"></script>
 </body>
 </html>

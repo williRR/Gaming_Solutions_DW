@@ -392,7 +392,7 @@ app.get('/api/audit', requireRole(['Administrador']), async (_req, res) => {
 
 // Support Catalogs (Customers, Providers, Inventory Options)
 app.get('/api/catalogs', requireRole(['Administrador', 'Ventas', 'Almacen']), async (_req, res) => {
-  if (demoMode) return res.json({ customers: demoCustomers, providers: demoProviders, inventory: demoInventory.filter(item => item.stock > 0) });
+  if (demoMode) return res.json({ customers: demoCustomers, providers: demoProviders, inventory: demoInventory });
   if (ordsInventoryUrl) {
     try {
       const [customers, providers, inventory] = await Promise.all([
@@ -433,6 +433,41 @@ app.post('/api/clients', requireRole(['Administrador', 'Ventas']), async (req, r
     }
     return res.status(501).json({ error: 'El alta de clientes requiere ORDS.' });
   } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// CREATE provider: POST /api/providers registers a supplier for purchases.
+app.post('/api/providers', requireRole(['Administrador', 'Almacen']), async (req, res) => {
+  try {
+    const { name, type, phone, email, address } = req.body || {};
+    required(name, 'Nombre del proveedor');
+    const providerType = type || 'PARTICULAR';
+    if (!['EMPRESA', 'PARTICULAR'].includes(providerType)) throw new Error('Tipo de proveedor inválido');
+    if (demoMode) {
+      const id = Math.max(0, ...demoProviders.map(provider => provider.id)) + 1;
+      demoProviders.push({ id, name, type: providerType, phone, email, address });
+      return res.status(201).json({ id, name });
+    }
+    if (ordsInventoryUrl && !poolPromise) {
+      const result = await postOrdsResource('proveedores', { name, type: providerType, phone, email, address }, req.user);
+      return res.status(201).json(result);
+    }
+    if (!poolPromise) return res.status(501).json({ error: oracleUnavailableMessage });
+    const id = await transaction(async connection => {
+      const result = await connection.execute(
+        `INSERT INTO PROVEEDORES (NOMBRE, TIPO_PROVEEDOR, TELEFONO, EMAIL, DIRECCION)
+         VALUES (:name, :type, :phone, :email, :address)
+         RETURNING ID_PROVEEDOR INTO :id`,
+        {
+          name, type: providerType, phone: phone || null, email: email || null, address: address || null,
+          id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+        }
+      );
+      return result.outBinds.id[0];
+    }, req.user);
+    return res.status(201).json({ id, name });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
 });
 
 // CREATE product: POST /api/inventory forwards product data to ORDS POST /productos/.
@@ -689,6 +724,19 @@ app.post('/api/purchases', requireRole(['Administrador', 'Almacen']), async (req
     }, req.user);
     res.status(201).json({ id });
   } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+const pageRoutes = {
+  '/dashboard': 'index.html',
+  '/inventario': 'inventory.html',
+  '/catalogo': 'catalog.html',
+  '/clientes': 'clients.html',
+  '/ventas': 'sales.html',
+  '/compras': 'purchases.html',
+  '/auditoria': 'audit.html'
+};
+Object.entries(pageRoutes).forEach(([route, file]) => {
+  app.get(route, (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', file)));
 });
 
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
