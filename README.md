@@ -387,6 +387,42 @@ npx cap sync android
 
 No se debe ejecutar `npx cap add android` más de una vez para el mismo proyecto.
 
+### Fase 4 — Dashboard administrativo y vistas de gestión
+
+En la rama `PanelAdmin` se incorporó una actualización visual del dashboard con:
+
+- KPI de inventario, ventas, stock bajo y clientes.
+- Indicador de rendimiento operativo y actividad reciente.
+- Acciones rápidas para registrar productos, ventas y compras.
+- Tablas de inventario, clientes, ventas y auditoría con diseño responsive.
+- Indicadores visuales de inspección y estado de certificados #GS.
+- Navegación móvil y modales para ingresar y editar registros.
+
+Archivos principales:
+
+- [`public/index.html`](public/index.html)
+- [`public/styles.css`](public/styles.css)
+- [`public/inventory.html`](public/inventory.html)
+- [`public/clients.html`](public/clients.html)
+- [`public/operations.html`](public/operations.html)
+- [`public/audit.html`](public/audit.html)
+- [`public/module.js`](public/module.js)
+- [`public/inventory.js`](public/inventory.js)
+- [`public/operations.js`](public/operations.js)
+
+#### Validación
+
+- `npm run check`: valida la sintaxis de `src/server.js`.
+- `DEMO_MODE=true npm start`: inicia la aplicación con datos simulados.
+- HTTP local: `GET /` responde con estado `200` y el dashboard esperado.
+- `GET /api/health`: responde con `200` y modo `demo`.
+- `POST /api/auth/login`: autentica usuarios de demostración.
+- `GET /api/dashboard` y `GET /api/inventory`: devuelven ocho productos de prueba.
+
+#### Integración pendiente
+
+La interfaz administrativa está conectada a los módulos y APIs. La landing pública aún no existe como una página independiente; la ruta `/landing.html` actualmente devuelve el dashboard del administrador y requiere una implementación separada de `public/landing.html` y una API pública de catálogo.
+
 ### Navegación móvil
 
 Se añadió [`public/js/mobile-nav.js`](<C:/Users/user/OneDrive/Desktop/Uni/8vo ciclo/desarrollo web/Proyecto fase 2/public/js/mobile-nav.js>).

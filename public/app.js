@@ -145,7 +145,9 @@ async function loadCatalogs() {
 window.loadCatalogs = loadCatalogs;
 
 function openModal(id) {
-  document.querySelector(`#${id}`).classList.add('open');
+  const modal = document.querySelector(`#${id}`);
+  modal.classList.add('open');
+  modal.removeAttribute('hidden');
   if (id !== 'inventoryModal') {
     loadCatalogs().catch(error => {
       document.querySelector('#sidebarStatus').textContent = error.message;
@@ -155,6 +157,7 @@ function openModal(id) {
 
 function closeModal(modal) {
   modal.classList.remove('open');
+  modal.setAttribute('hidden', 'hidden');
   modal.querySelectorAll('.form-message').forEach(message => {
     message.textContent = '';
     message.className = 'form-message';
