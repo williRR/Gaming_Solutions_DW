@@ -423,16 +423,16 @@ app.get('/api/catalogs', requireRole(['Administrador', 'Ventas', 'Almacen']), as
 // CREATE client: POST /api/clients proxies ORDS POST /clientes/.
 app.post('/api/clients', requireRole(['Administrador', 'Ventas']), async (req, res) => {
   try {
-    const { name, phone, email, address } = req.body;
+    const { name, phone, email, address, nit, dpi } = req.body;
     required(name, 'Nombre del cliente');
     if (demoMode) {
       const id = Math.max(0, ...demoCustomers.map(customer => customer.id)) + 1;
-      demoCustomers.push({ id, name, phone, email, address });
+      demoCustomers.push({ id, name, phone, email, address, nit, dpi });
       return res.status(201).json({ id });
     }
     if (ordsInventoryUrl && !poolPromise) {
       try {
-        const result = await postOrdsResource('clientes', { name, phone, email, address }, req.user);
+        const result = await postOrdsResource('clientes', { name, phone, email, address, nit, dpi }, req.user);
         return res.status(201).json(result);
       } catch (error) { return res.status(502).json({ error: error.message }); }
     }
@@ -443,27 +443,27 @@ app.post('/api/clients', requireRole(['Administrador', 'Ventas']), async (req, r
 // CREATE provider: POST /api/providers registers a supplier for purchases.
 app.post('/api/providers', requireRole(['Administrador', 'Almacen']), async (req, res) => {
   try {
-    const { name, type, phone, email, address } = req.body || {};
+    const { name, type, phone, email, address, nit } = req.body || {};
     required(name, 'Nombre del proveedor');
     const providerType = type || 'PARTICULAR';
     if (!['EMPRESA', 'PARTICULAR'].includes(providerType)) throw new Error('Tipo de proveedor inválido');
     if (demoMode) {
       const id = Math.max(0, ...demoProviders.map(provider => provider.id)) + 1;
-      demoProviders.push({ id, name, type: providerType, phone, email, address });
+      demoProviders.push({ id, name, type: providerType, phone, email, address, nit });
       return res.status(201).json({ id, name });
     }
     if (ordsInventoryUrl && !poolPromise) {
-      const result = await postOrdsResource('proveedores', { name, type: providerType, phone, email, address }, req.user);
+      const result = await postOrdsResource('proveedores', { name, type: providerType, phone, email, address, nit }, req.user);
       return res.status(201).json(result);
     }
     if (!poolPromise) return res.status(501).json({ error: oracleUnavailableMessage });
     const id = await transaction(async connection => {
       const result = await connection.execute(
-        `INSERT INTO PROVEEDORES (NOMBRE, TIPO_PROVEEDOR, TELEFONO, EMAIL, DIRECCION)
-         VALUES (:name, :type, :phone, :email, :address)
+        `INSERT INTO PROVEEDORES (NOMBRE, TIPO_PROVEEDOR, TELEFONO, EMAIL, DIRECCION, NIT)
+         VALUES (:name, :type, :phone, :email, :address, :nit)
          RETURNING ID_PROVEEDOR INTO :id`,
         {
-          name, type: providerType, phone: phone || null, email: email || null, address: address || null,
+          name, type: providerType, phone: phone || null, email: email || null, address: address || null, nit: nit || null,
           id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
         }
       );
@@ -478,7 +478,7 @@ app.post('/api/providers', requireRole(['Administrador', 'Almacen']), async (req
 // CREATE product: POST /api/inventory forwards product data to ORDS POST /productos/.
 app.post('/api/inventory', requireRole(['Administrador', 'Almacen']), async (req, res) => {
   try {
-    const { name, brand, model, type, price, cost, stock } = req.body;
+    const { name, brand, model, type, productType, imageUrl, price, cost, stock } = req.body;
     required(name, 'Nombre');
     const itemType = type || 'NEXT_GEN';
     if (Number(price) < 0 || Number(stock) < 0) throw new Error('Datos de inventario inválidos');
@@ -488,7 +488,7 @@ app.post('/api/inventory', requireRole(['Administrador', 'Almacen']), async (req
       const certificate = `#GS-${2200 + id}`;
       const newItem = {
         id, name, brand: brand || 'Gaming Solutions', model: model || 'GS-CUSTOM',
-        type: itemType, price: Number(price), cost: Number(cost || 0), stock: Number(stock),
+        type: itemType, productType: productType || 'NUEVO', imageUrl: imageUrl || '', price: Number(price), cost: Number(cost || 0), stock: Number(stock),
         status: Number(stock) === 0 ? 'Agotado' : 'Disponible',
         certificate, hwPct: 100, aestheticPct: 95, thermalPct: 98, warrantyMonths: itemType === 'LAPTOP' ? 18 : itemType === 'RETRO' ? 6 : 12
       };
@@ -496,15 +496,15 @@ app.post('/api/inventory', requireRole(['Administrador', 'Almacen']), async (req
       return res.status(201).json({ id, certificate });
     }
     if (ordsInventoryUrl && !poolPromise) {
-      const result = await postOrdsResource('productos', { name, brand, model, type: itemType, price: Number(price), cost: cost ? Number(cost) : null, stock: Number(stock) }, req.user);
+      const result = await postOrdsResource('productos', { name, brand, model, type: itemType, productType: productType || 'NUEVO', imageUrl: imageUrl || null, price: Number(price), cost: cost ? Number(cost) : null, stock: Number(stock) }, req.user);
       return res.status(201).json(result);
     }
     const id = await transaction(async connection => {
       const result = await connection.execute(
-        `INSERT INTO PRODUCTOS (ID_CATEGORIA, NOMBRE, MARCA, MODELO, TIPO_HARDWARE, PRECIO_VENTA, PRECIO_COMPRA, STOCK)
-         VALUES (1, :name, :brand, :model, :type, :price, :cost, :stock) RETURNING ID_PRODUCTO INTO :id`,
+        `INSERT INTO PRODUCTOS (ID_CATEGORIA, NOMBRE, MARCA, MODELO, TIPO_HARDWARE, TIPO_PRODUCTO, IMAGEN_URL, PRECIO_VENTA, PRECIO_COMPRA, STOCK)
+         VALUES (1, :name, :brand, :model, :type, :productType, :imageUrl, :price, :cost, :stock) RETURNING ID_PRODUCTO INTO :id`,
         {
-          name, brand: brand || '', model: model || '', type: itemType,
+          name, brand: brand || '', model: model || '', type: itemType, productType: productType || 'NUEVO', imageUrl: imageUrl || null,
           price: Number(price), cost: cost ? Number(cost) : 0, stock: Number(stock),
           id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
         }
@@ -526,7 +526,7 @@ app.post('/api/inventory', requireRole(['Administrador', 'Almacen']), async (req
 app.patch('/api/inventory/:id', requireRole(['Administrador', 'Almacen']), async (req, res) => {
   try {
     const productId = Number(req.params.id);
-    const { price, stock, name, cost, description, providerId } = req.body;
+    const { price, stock, name, cost, description, providerId, imageUrl, productType, warrantyMonths } = req.body;
     if (!Number.isInteger(productId) || productId <= 0) return res.status(400).json({ error: 'ID de producto inválido' });
     for (const [field, value] of Object.entries({ price, stock, cost })) {
       if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
@@ -542,6 +542,9 @@ app.patch('/api/inventory/:id', requireRole(['Administrador', 'Almacen']), async
       if (cost !== undefined) item.cost = Number(cost);
       if (description !== undefined) item.description = description;
       if (providerId !== undefined) item.providerId = Number(providerId);
+      if (imageUrl !== undefined) item.imageUrl = imageUrl;
+      if (productType !== undefined) item.productType = productType;
+      if (warrantyMonths !== undefined) item.warrantyMonths = Number(warrantyMonths);
       return res.json({ ok: true });
     }
     if (ordsInventoryUrl && !poolPromise) {
@@ -549,8 +552,8 @@ app.patch('/api/inventory/:id', requireRole(['Administrador', 'Almacen']), async
       catch (error) { return res.status(502).json({ error: error.message }); }
     }
     const result = await withConnection(connection => connection.execute(
-      `UPDATE PRODUCTOS SET NOMBRE = COALESCE(:name, NOMBRE), PRECIO_VENTA = COALESCE(:price, PRECIO_VENTA), STOCK = COALESCE(:stock, STOCK) WHERE ID_PRODUCTO = :id`,
-      { id: productId, name: name || null, price: price === undefined ? null : Number(price), stock: stock === undefined ? null : Number(stock) }
+      `UPDATE PRODUCTOS SET NOMBRE = COALESCE(:name, NOMBRE), PRECIO_VENTA = COALESCE(:price, PRECIO_VENTA), PRECIO_COMPRA = COALESCE(:cost, PRECIO_COMPRA), STOCK = COALESCE(:stock, STOCK), IMAGEN_URL = COALESCE(:imageUrl, IMAGEN_URL), TIPO_PRODUCTO = COALESCE(:productType, TIPO_PRODUCTO), TIEMPO_GARANTIA_MESES = COALESCE(:warrantyMonths, TIEMPO_GARANTIA_MESES) WHERE ID_PRODUCTO = :id`,
+      { id: productId, name: name || null, price: price === undefined ? null : Number(price), cost: cost === undefined ? null : Number(cost), stock: stock === undefined ? null : Number(stock), imageUrl: imageUrl || null, productType: productType || null, warrantyMonths: warrantyMonths === undefined ? null : Number(warrantyMonths) }
     ), req.user);
     if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ ok: true });

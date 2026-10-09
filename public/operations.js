@@ -1,5 +1,6 @@
 const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' });
 let catalogs = { customers: [], providers: [], inventory: [] };
+let lastSale = null;
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -87,6 +88,10 @@ async function submitForm(event) {
   }
   try {
     const result = await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+    if (form.dataset.form === 'sale') {
+      lastSale = { ...result, customer: catalogs.customers.find(item => item.id === Number(data.customerId)), product, quantity: Number(data.quantity), payment: data.payment };
+      document.querySelector('[data-sale-print]').disabled = false;
+    }
     message.textContent = `Operación registrada correctamente (#${result.id})`;
     message.className = 'form-message success';
     form.reset();
@@ -95,6 +100,31 @@ async function submitForm(event) {
     message.textContent = error.message;
     message.className = 'form-message error';
   }
+
+  function renderSaleSummary() {
+    const customer = catalogs.customers.find(item => item.id === Number(document.querySelector('#saleCustomer')?.value));
+    const product = catalogs.inventory.find(item => item.id === Number(document.querySelector('#saleProduct')?.value));
+    const quantity = Number(document.querySelector('[data-form="sale"] [name="quantity"]')?.value || 0);
+    document.querySelector('#saleSummary').innerHTML = `<p><strong>Cliente:</strong> ${escapeHtml(customer?.name || 'Sin seleccionar')}</p><p><strong>Producto:</strong> ${escapeHtml(product?.name || 'Sin seleccionar')} × ${quantity}</p><p class="operation-total">Total <strong>${money.format((Number(product?.price) || 0) * quantity)}</strong></p>`;
+  }
+
+  document.querySelector('.cart-action')?.addEventListener('click', () => {
+    renderSaleSummary();
+    document.querySelector('#saleSummaryModal')?.classList.add('open');
+  });
+  document.querySelector('[data-sale-close]')?.addEventListener('click', () => document.querySelector('#saleSummaryModal')?.classList.remove('open'));
+  document.querySelector('[data-sale-print]')?.addEventListener('click', () => {
+    if (!lastSale) return;
+    const item = lastSale.product;
+    const inspection = String(item.productType || item.type).toUpperCase() === 'NUEVO'
+      ? '<p class="stamp">PRODUCTO NUEVO / GARANTÍA DE FÁBRICA</p>'
+      : `<h2>Inspección técnica</h2><ul><li>HW: ${item.hwPct || 100}%</li><li>Estética: ${item.aestheticPct || 95}%</li><li>Térmico: ${item.thermalPct || 98}%</li></ul>`;
+    const popup = window.open('', '_blank', 'noopener,noreferrer');
+    if (!popup) return;
+    const safe = value => escapeHtml(value);
+    popup.document.write(`<html lang="es"><head><title>Certificado de Garantía ${safe(lastSale.id)}</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:40px auto;color:#20252b}h1{color:#20252b;border-bottom:4px solid #c8f05a;padding-bottom:14px}.stamp{padding:14px;background:#ecf7d8;font-weight:bold}li{margin:8px 0}</style></head><body><h1>Gaming Solutions - Certificado de Garantía</h1><p><strong>Venta:</strong> #GS-${safe(lastSale.id)} · <strong>Fecha:</strong> ${new Date().toLocaleDateString('es-GT')}</p><p><strong>Cliente:</strong> ${safe(lastSale.customer?.name || 'Cliente')}</p><h2>Producto(s) adquirido(s)</h2><p>${safe(item.name)} × ${lastSale.quantity}</p><p><strong>Tiempo de garantía:</strong> ${Number(item.warrantyMonths || 12)} meses</p>${inspection}<p>Conserve este certificado para solicitar servicio de garantía.</p></body></html>`);
+    popup.document.close(); popup.focus(); popup.print();
+  });
 }
 
 document.querySelectorAll('[data-form]').forEach(form => form.addEventListener('submit', submitForm));

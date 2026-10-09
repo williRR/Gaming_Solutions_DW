@@ -12,6 +12,13 @@ Carga y ejecuta los archivos en tu Workspace de APEX en el menú **SQL Workshop 
 2. **`sql/02_auditoria.sql`**: Triggers PL/SQL y la tabla `BITACORA_AUDITORIA` con auditoría JSON.
 3. **`sql/03_seed.sql`**: Datos de prueba iniciales con consolas Next-Gen, laptops gamer, retro restauros y certificados `#GS-2201` a `#GS-2208`.
 4. **`sql/04_ords_rest_endpoints.sql`**: Publicación automática de endpoints ORDS en PL/SQL.
+5. **`sql/07_alter_database.sql`**: Migración segura de clientes, proveedores y productos (NIT/DPI, tipo de producto, garantía e imagen URL).
+6. **`sql/08_ords_crud_endpoints.sql`**: GET/POST de clientes y proveedores y GET/PUT de productos.
+
+La migración no borra tablas ni datos. En APEX ejecútala como script completo y revise
+`USER_ERRORS` si el administrador ya creó manualmente alguna restricción con otro nombre.
+Después publique el módulo ORDS y configure `ORDS_INVENTORY_URL` apuntando a
+`.../gaming/productos/`. Para validar sin Oracle use `DEMO_MODE=true npm start`.
 
 ---
 
@@ -29,6 +36,18 @@ Carga y ejecuta los archivos en tu Workspace de APEX en el menú **SQL Workshop 
 | **POST** | `/gaming/ventas/` | Registra una venta en efectivo o transferencia y descuenta stock. | `{ "customerId": 1, "payment": "EFECTIVO", "total": 499.99, "productId": 1, "quantity": 1 }` |
 | **POST** | `/gaming/compras/` | Registra compra a proveedor e incrementa stock. | `{ "providerId": 1, "productId": 2, "quantity": 5, "cost": 290.00 }` |
 | **GET** | `/gaming/auditoria/` | Historial de cambios auditados en JSON. | N/A |
+| **POST** | `/gaming/clientes/` | Registra nombre, teléfono, dirección, NIT y DPI. | `{ "name": "...", "phone": "...", "address": "...", "nit": "...", "dpi": "..." }` |
+| **POST** | `/gaming/proveedores/` | Registra un proveedor para compras. | `{ "name": "...", "type": "EMPRESA", "nit": "..." }` |
+| **PUT** | `/gaming/productos/:id/` | Actualiza inventario, tipo, garantía e imagen URL. | `{ "imageUrl": "https://lh3.googleusercontent.com/d/ID" }` |
+
+## Integración frontend y publicación
+
+1. Aplique `07_alter_database.sql` y luego `08_ords_crud_endpoints.sql` en SQL Workshop.
+2. Pruebe GET de clientes, proveedores y productos desde ORDS antes de publicar la API.
+3. Configure en Vercel las mismas variables de entorno del backend (`ORDS_INVENTORY_URL`, `ORDS_BASE_URL`, JWT y secretos), sin subir `.env`.
+4. Despliegue el backend y ejecute `npm run check`; para la demostración local use `DEMO_MODE=true npm start`.
+5. En la Terminal de ventas, el botón **Ver Carrito** abre el resumen sin registrar la salida; el certificado se habilita únicamente después de confirmar la venta.
+6. Las URLs de Drive se normalizan en el navegador a `https://lh3.googleusercontent.com/d/ID`; la base de datos conserva solo texto.
 
 ---
 
