@@ -4,8 +4,8 @@
   "webDir": "public",
   "server": {
     "url": "https://gaming-solutions-dw-panel.vercel.app",
-    "cleartext": true,
-    "androidScheme": "http"
+    "cleartext": false,
+    "androidScheme": "https"
   },
   "plugins": {
     "StatusBar": {

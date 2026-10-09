@@ -19,6 +19,16 @@ npm start
 
 En modo demo las rutas no llaman ORDS. Los datos viven en memoria y algunas rutas devuelven listas vacias o respuestas simplificadas. En modo ORDS, Express hace las llamadas a APEX, incluye `Accept: application/json` y el `User-Agent` configurado por `ORDS_USER_AGENT`. No se requiere que el frontend conozca la URL de ORDS ni sus headers.
 
+En producción, `ORDS_INVENTORY_URL` debe apuntar a un ORDS público con HTTPS. Si se usa el pool Oracle para autenticar contra `USUARIOS`, `ORACLE_CONNECT_STRING` también debe ser enrutable desde Vercel; una IP privada como `192.168.1.50:1521` nunca funcionará desde Vercel. Un fallo de conexión durante el login responde `503` con:
+
+```json
+{
+  "ok": false,
+  "code": "AUTH_DB_UNAVAILABLE",
+  "error": "El servicio de autenticación no está disponible. Intenta nuevamente más tarde."
+}
+```
+
 Todas las rutas que reciben un cuerpo esperan JSON (`Content-Type: application/json`). Los errores usan normalmente `{ "error": "..." }`. Las respuestas de ORDS que no se normalizan se devuelven con la estructura que entrega el workspace APEX.
 
 ## Rutas de lectura

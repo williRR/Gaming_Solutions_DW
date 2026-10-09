@@ -525,16 +525,32 @@ Copiar `.env.example` a `.env` y completar:
 PORT=3000
 DEMO_MODE=false
 JWT_SECRET=una-clave-aleatoria-larga
-ORDS_INVENTORY_URL=https://<instancia>/ords/<esquema>/gaming/productos/
-ORACLE_USER=gaming_solutions
+ORDS_INVENTORY_URL=https://<instancia-publica>/ords/<esquema>/gaming/productos/
+ORACLE_USER=<usuario-oracle>
 ORACLE_PASSWORD=<secreto>
-ORACLE_CONNECT_STRING=<host>:<puerto>/<servicio>
+ORACLE_CONNECT_STRING=<host-publico-o-autonomous>:<puerto>/<servicio>
 ORACLE_POOL_MIN=1
 ORACLE_POOL_MAX=5
 ORACLE_POOL_INCREMENT=1
 ```
 
 Si se necesita autenticación contra `USUARIOS`, deben estar configuradas las credenciales Oracle y los usuarios deben tener hashes bcrypt en `USUARIOS.CLAVE_HASH`.
+
+En Vercel no se puede usar una dirección privada de LAN como `192.168.1.50:1521`. La alternativa recomendada es, en este orden:
+
+1. Oracle Autonomous Database con un connect string público/TLS compatible con Thin Driver.
+2. ORDS publicado con HTTPS y un endpoint de autenticación, manteniendo las credenciales únicamente en Vercel.
+3. Como último recurso, una red privada accesible mediante túnel/VPN compatible con Vercel; no exponer el puerto 1521 directamente a Internet sin controles de red.
+
+Configura estas variables en **Vercel > Project > Settings > Environment Variables > Production** y redeploya la rama `AppMovil`. No copies `.env` a Vercel ni al repositorio:
+
+- `DEMO_MODE=false`
+- `JWT_SECRET`: secreto aleatorio largo, distinto al de desarrollo.
+- `ORACLE_USER`
+- `ORACLE_PASSWORD`
+- `ORACLE_CONNECT_STRING`: host público/TLS, nunca `192.168.x.x`, `localhost` o `127.0.0.1`.
+- `ORDS_INVENTORY_URL`: URL HTTPS completa que termina en `/productos/`, si se usan los endpoints ORDS.
+- `ORACLE_POOL_MIN=1`, `ORACLE_POOL_MAX=5`, `ORACLE_POOL_INCREMENT=1`
 
 Nunca subir `.env`, contraseñas, wallets, certificados ni credenciales al repositorio.
 
