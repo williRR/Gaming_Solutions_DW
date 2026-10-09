@@ -20,7 +20,7 @@ const port = Number(process.env.PORT || 3000);
 const apiVersion = '2026.09.28-apex-ords';
 const demoMode = process.env.DEMO_MODE === 'true';
 // ORDS GET URL for the product collection; configure the full URL ending in /productos/.
-const ordsInventoryUrl = process.env.ORDS_INVENTORY_URL || 'https://oracleapex.com/ords/willi_gs/gaming/productos/';
+const ordsInventoryUrl = process.env.ORDS_INVENTORY_URL || '';
 // Used to build sibling ORDS resources such as POST /productos/.
 const ordsBaseUrl = ordsInventoryUrl.replace(/(productos|consolas)\/?$/, '');
 // Can be overridden if the ORDS WAF requires a different User-Agent.
@@ -96,6 +96,11 @@ async function setOracleActor(connection, user) {
 }
 
 async function withConnection(work, user) {
+  if (!poolPromise) {
+    const error = new Error(oracleUnavailableMessage);
+    error.code = 'AUTH_DB_UNAVAILABLE';
+    throw error;
+  }
   const pool = await poolPromise;
   const connection = await pool.getConnection();
   try {

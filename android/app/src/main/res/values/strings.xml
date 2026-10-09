@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gaming Solutions Admin</string>
+    <string name="title_activity_main">Gaming Solutions Admin</string>
+    <string name="package_name">pe.gamingsolutions.admin</string>
+    <string name="custom_url_scheme">pe.gamingsolutions.admin</string>
+</resources>

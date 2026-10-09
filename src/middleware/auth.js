@@ -113,6 +113,13 @@ async function loginHandler(req, res) {
     return res.json({ token: issueToken(safeUser), user: safeUser, expiresIn: TOKEN_EXPIRATION });
   } catch (error) {
     console.error('Error de autenticación:', error);
+    if (error.code === 'NJS-503' || error.code === 'NJS-500' || error.code === 'NJS-510' || error.code === 'NJS-522' || error.code === 'AUTH_DB_UNAVAILABLE') {
+      return res.status(503).json({
+        ok: false,
+        code: 'AUTH_DB_UNAVAILABLE',
+        error: 'El servicio de autenticación no está disponible. Intenta nuevamente más tarde.'
+      });
+    }
     return res.status(500).json({ error: 'No se pudo procesar el inicio de sesión' });
   }
 }

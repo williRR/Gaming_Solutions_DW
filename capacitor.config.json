@@ -3,9 +3,9 @@
   "appName": "Gaming Solutions Admin",
   "webDir": "public",
   "server": {
-    "url": "http://localhost:3000",
-    "cleartext": true,
-    "androidScheme": "http"
+    "url": "https://gaming-solutions-dw-panel.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https"
   },
   "plugins": {
     "StatusBar": {
