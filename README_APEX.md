@@ -14,6 +14,7 @@ Carga y ejecuta los archivos en tu Workspace de APEX en el menú **SQL Workshop 
 4. **`sql/04_ords_rest_endpoints.sql`**: Publicación automática de endpoints ORDS en PL/SQL.
 5. **`sql/07_alter_database.sql`**: Migración segura de clientes, proveedores y productos (NIT/DPI, tipo de producto, garantía e imagen URL).
 6. **`sql/08_ords_crud_endpoints.sql`**: GET/POST de clientes y proveedores y GET/PUT de productos.
+7. **`sql/09_ords_put_producto_imagen.sql`**: Re-publica de forma segura el handler PUT de productos para persistir `IMAGEN_URL`.
 
 La migración no borra tablas ni datos. En APEX ejecútala como script completo y revise
 `USER_ERRORS` si el administrador ya creó manualmente alguna restricción con otro nombre.

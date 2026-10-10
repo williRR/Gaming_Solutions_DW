@@ -68,14 +68,19 @@ const demoSales = [
 ];
 
 const demoCustomers = [
-  { id: 1, name: 'María González' },
-  { id: 2, name: 'Carlos Ramírez' },
+  { id: 1, name: 'María González', nit: '1234567-8', phone: '5555-0101', address: 'Zona 10, Guatemala' },
+  { id: 2, name: 'Carlos Ramírez', dpi: '1234 56789 0101', phone: '5555-0102', address: 'Zona 1, Guatemala' },
   { id: 3, name: 'Ana Torres' }
 ];
 
 const demoProviders = [
   { id: 1, name: 'Distribuciones Next Level S.A.C.' },
   { id: 2, name: 'Jorge Mendoza (Coleccionista)' }
+];
+
+const demoAudit = [
+  { id: 1, operation: 'INICIO', table: 'SISTEMA', timestamp: new Date().toISOString(), dbUser: 'DEMO' },
+  { id: 2, operation: 'SEED', table: 'PRODUCTOS', timestamp: new Date().toISOString(), dbUser: 'DEMO' }
 ];
 
 const demoUsers = [
@@ -143,7 +148,8 @@ app.use('/api/sales', createSalesRouter({
   demoInventory,
   poolPromise,
   transaction,
-  postOrdsResource
+  postOrdsResource,
+  query
 }));
 app.use('/api/purchases', createPurchasesRouter({
   demoMode,
@@ -182,6 +188,8 @@ function normalizeOrdsItem(item) {
     brand: value(['brand', 'MARCA', 'marca'], ''),
     model: value(['model', 'MODELO', 'modelo'], ''),
     type: value(['type', 'TIPO_HARDWARE', 'tipo_hardware', 'TIPO', 'tipo'], 'NEXT_GEN'),
+    productType: value(['productType', 'product_type', 'TIPO_PRODUCTO', 'tipo_producto'], 'NUEVO'),
+    imageUrl: value(['imageUrl', 'image_url', 'IMAGEN_URL', 'imagen_url'], ''),
     price: Number(value(['price', 'PRECIO_VENTA', 'precio_venta'], 0)),
     cost: Number(value(['cost', 'PRECIO_COMPRA', 'precio_compra'], 0)),
     stock,
@@ -287,7 +295,7 @@ app.get('/api/dashboard', async (_req, res) => {
     }
     const [inventory, sales, metrics] = await Promise.all([
       query(`SELECT p.ID_PRODUCTO AS "id", p.NOMBRE AS "name", p.MARCA AS "brand", p.MODELO AS "model",
-            p.TIPO_HARDWARE AS "type", p.PRECIO_VENTA AS "price", p.STOCK AS "stock",
+            p.TIPO_HARDWARE AS "type", p.TIPO_PRODUCTO AS "productType", p.IMAGEN_URL AS "imageUrl", p.PRECIO_VENTA AS "price", p.STOCK AS "stock",
             CASE WHEN p.STOCK = 0 THEN 'Agotado' WHEN p.STOCK <= 3 THEN 'Stock bajo' ELSE 'Disponible' END AS "status",
             cert.CODIGO_CERTIFICADO AS "certificate", cert.HARDWARE_ORIGINAL_PCT AS "hwPct",
             cert.ESTADO_ESTETICO_PCT AS "aestheticPct", cert.RENDIMIENTO_TERMICO_PCT AS "thermalPct"
@@ -301,10 +309,32 @@ app.get('/api/dashboard', async (_req, res) => {
       query(`SELECT (SELECT NVL(SUM(STOCK),0) FROM PRODUCTOS WHERE ACTIVO = 'S') AS "inventory",
             (SELECT COUNT(*) FROM PRODUCTOS WHERE ACTIVO = 'S' AND STOCK BETWEEN 1 AND 3) AS "lowStock",
             (SELECT NVL(SUM(TOTAL_VENTA), 0) FROM VENTAS WHERE ESTADO_VENTA = 'COMPLETADA' AND FECHA_VENTA >= TRUNC(SYSDATE, 'MM')) AS "monthlySales",
-            (SELECT COUNT(*) FROM CLIENTES) AS "customers" FROM DUAL`)
+            (SELECT COUNT(ID_CLIENTE) FROM CLIENTES) AS "customers" FROM DUAL`)
     ]);
     res.json({ inventory, sales, metrics: metrics[0] });
   } catch (error) { res.status(ordsInventoryUrl ? 502 : 500).json({ error: error.message }); }
+});
+
+// Resumen operativo: métricas reales para consumidores que no usan /api/dashboard.
+app.get('/api/summary', requireRole(['Administrador', 'Ventas', 'Almacen']), async (_req, res) => {
+  if (demoMode) {
+    return res.json({ mode: 'demo', metrics: { inventory: demoInventory.reduce((total, item) => total + item.stock, 0), monthlySales: 13840.50, lowStock: demoInventory.filter(item => item.stock > 0 && item.stock <= 3).length, customers: 86 } });
+  }
+  try {
+    if (ordsInventoryUrl) {
+      const payload = await getOrdsCollection(`${ordsBaseUrl}dashboard/`);
+      return res.json({ mode: 'ords', metrics: payload.metrics });
+    }
+    const [metrics] = await query(`SELECT
+      (SELECT NVL(SUM(STOCK), 0) FROM PRODUCTOS WHERE ACTIVO = 'S') AS "inventory",
+      (SELECT NVL(SUM(TOTAL_VENTA), 0) FROM VENTAS WHERE ESTADO_VENTA = 'COMPLETADA' AND FECHA_VENTA >= TRUNC(SYSDATE, 'MM')) AS "monthlySales",
+      (SELECT COUNT(*) FROM PRODUCTOS WHERE ACTIVO = 'S' AND STOCK BETWEEN 1 AND 3) AS "lowStock",
+      (SELECT COUNT(ID_CLIENTE) FROM CLIENTES) AS "customers"
+      FROM DUAL`);
+    return res.json({ mode: 'oracle', metrics });
+  } catch (error) {
+    return res.status(ordsInventoryUrl ? 502 : 500).json({ error: error.message });
+  }
 });
 
 // READ products: GET /api/inventory proxies the ORDS GET /productos/ collection.
@@ -316,7 +346,7 @@ app.get('/api/inventory', requireRole(['Administrador', 'Ventas', 'Almacen']), a
   try {
     const products = await query(`
       SELECT p.ID_PRODUCTO AS "id", p.NOMBRE AS "name", p.MARCA AS "brand", p.MODELO AS "model", 
-             p.TIPO_HARDWARE AS "type", p.PRECIO_VENTA AS "price", p.PRECIO_COMPRA AS "cost", p.STOCK AS "stock",
+             p.TIPO_HARDWARE AS "type", p.TIPO_PRODUCTO AS "productType", p.IMAGEN_URL AS "imageUrl", p.PRECIO_VENTA AS "price", p.PRECIO_COMPRA AS "cost", p.STOCK AS "stock",
              cert.CODIGO_CERTIFICADO AS "certificate", cert.HARDWARE_ORIGINAL_PCT AS "hwPct",
              cert.ESTADO_ESTETICO_PCT AS "aestheticPct", cert.RENDIMIENTO_TERMICO_PCT AS "thermalPct",
              cert.MESES_GARANTIA AS "warrantyMonths"
@@ -390,7 +420,7 @@ app.get('/api/sales/:id', requireRole(['Administrador', 'Ventas']), async (req, 
 
 // READ audit history: GET /api/audit proxies ORDS GET /auditoria/.
 app.get('/api/audit', requireRole(['Administrador']), async (_req, res) => {
-  if (demoMode) return res.json([]);
+  if (demoMode) return res.json(demoAudit);
   try { return res.json(await getOrdsItems('auditoria')); }
   catch (error) { return res.status(502).json({ error: error.message }); }
 });
@@ -401,8 +431,8 @@ app.get('/api/catalogs', requireRole(['Administrador', 'Ventas', 'Almacen']), as
   if (ordsInventoryUrl) {
     try {
       const [customers, providers, inventory] = await Promise.all([
-        // ORDS /catalogos/ supplies customer records; providers are not exposed by this endpoint.
-        getOrdsItems('catalogos'),
+        // El POS requiere los datos de contacto completos para validar la venta.
+        getOrdsItems('clientes'),
         getOrdsItems('proveedores'),
         getOrdsInventory()
       ]);
@@ -558,6 +588,51 @@ app.patch('/api/inventory/:id', requireRole(['Administrador', 'Almacen']), async
     if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ ok: true });
   } catch (error) { res.status(400).json({ error: error.message }); }
+});
+
+// PUT compatible con integraciones que consumen /api/products/:id.
+app.put('/api/products/:id', requireRole(['Administrador', 'Almacen']), async (req, res) => {
+  const productId = Number(req.params.id);
+  const { name, price, cost, stock, imagen_url, imageUrl, warrantyMonths, tiempo_garantia_meses } = req.body || {};
+  const image = imagen_url ?? imageUrl ?? null;
+  const warranty = warrantyMonths ?? tiempo_garantia_meses;
+  if (!Number.isInteger(productId) || productId <= 0) return res.status(400).json({ error: 'ID de producto inválido' });
+  try {
+    for (const [field, value] of Object.entries({ price, cost, stock, warranty })) {
+      if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0)) throw new Error(`${field} debe ser un número no negativo`);
+    }
+    if (demoMode) {
+      const item = demoInventory.find(entry => entry.id === productId);
+      if (!item) return res.status(404).json({ error: 'Producto no encontrado' });
+      if (name !== undefined) item.name = name;
+      if (price !== undefined) item.price = Number(price);
+      if (cost !== undefined) item.cost = Number(cost);
+      if (stock !== undefined) item.stock = Number(stock);
+      if (image !== null) item.imageUrl = image;
+      if (warranty !== undefined) item.warrantyMonths = Number(warranty);
+      return res.json({ id: productId, ok: true });
+    }
+    if (ordsInventoryUrl && !poolPromise) {
+      const response = await fetch(`${ordsBaseUrl}productos/${productId}/`, {
+        method: 'PUT',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': ordsUserAgent },
+        body: JSON.stringify({ id: productId, nombre: name, precio_venta: price, precio_compra: cost, stock, imagen_url: image, tiempo_garantia_meses: warranty }),
+        signal: AbortSignal.timeout(10000)
+      });
+      const body = await response.text();
+      if (!response.ok) return res.status(502).json({ error: `ORDS respondió HTTP ${response.status}: ${body || 'sin detalle'}` });
+      return res.json(body ? JSON.parse(body) : { id: productId, ok: true });
+    }
+    if (!poolPromise) return res.status(501).json({ error: oracleUnavailableMessage });
+    const result = await transaction(connection => connection.execute(
+      `UPDATE PRODUCTOS SET NOMBRE = NVL(:name, NOMBRE), PRECIO_VENTA = NVL(:price, PRECIO_VENTA), PRECIO_COMPRA = NVL(:cost, PRECIO_COMPRA), STOCK = NVL(:stock, STOCK), IMAGEN_URL = NVL(:image, IMAGEN_URL), TIEMPO_GARANTIA_MESES = NVL(:warranty, TIEMPO_GARANTIA_MESES) WHERE ID_PRODUCTO = :id`,
+      { id: productId, name: name || null, price: price === undefined ? null : Number(price), cost: cost === undefined ? null : Number(cost), stock: stock === undefined ? null : Number(stock), image, warranty: warranty === undefined ? null : Number(warranty) }
+    ), req.user);
+    if (!result.rowsAffected) return res.status(404).json({ error: 'Producto no encontrado' });
+    return res.json({ id: productId, ok: true });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
 });
 
 // DEACTIVATE product: DELETE /api/inventory/:id proxies ORDS POST /productos/:id/desactivar/.

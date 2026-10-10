@@ -1,6 +1,7 @@
 const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' });
 let catalogs = { customers: [], providers: [], inventory: [] };
 let lastSale = null;
+const completeCustomerMessage = 'El cliente seleccionado debe tener datos completos (NIT/DPI, Teléfono y Dirección) para realizar la compra.';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -49,6 +50,20 @@ function updateTotals() {
   if (purchaseTotal) purchaseTotal.textContent = money.format(purchaseQuantity * purchaseCost);
 }
 
+function customerIsComplete(customer) {
+  return Boolean(customer && (customer.nit || customer.dpi) && customer.phone && customer.address);
+}
+
+function updateSaleEligibility() {
+  const select = document.querySelector('#saleCustomer');
+  const button = document.querySelector('#chargeSale');
+  const warning = document.querySelector('#saleCustomerWarning');
+  const customer = catalogs.customers.find(item => item.id === Number(select?.value));
+  const complete = customerIsComplete(customer);
+  if (button) button.disabled = !complete;
+  if (warning) warning.textContent = customer && !complete ? completeCustomerMessage : '';
+}
+
 async function loadData() {
   const [catalogResult, salesResult] = await Promise.allSettled([apiRequest('/api/catalogs'), apiRequest('/api/sales')]);
   if (catalogResult.status === 'fulfilled') {
@@ -58,6 +73,7 @@ async function loadData() {
     fillSelect('#saleProduct', catalogs.inventory.filter(item => item.stock > 0), item => `${item.name} · ${money.format(item.price)} · Stock: ${item.stock}`);
     fillSelect('#purchaseProduct', catalogs.inventory, item => item.name);
     updateTotals();
+    updateSaleEligibility();
   }
   if (salesResult.status === 'fulfilled') renderSales(salesResult.value);
   document.querySelector('#sidebarStatus').textContent = catalogResult.status === 'fulfilled' ? 'Apex / ORDS Activo' : 'Catálogos no disponibles';
@@ -68,15 +84,20 @@ async function submitForm(event) {
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form));
   const message = form.querySelector('.form-message');
+  const selectedProduct = catalogs.inventory.find(item => item.id === Number(data.productId));
+  const selectedCustomer = catalogs.customers.find(item => item.id === Number(data.customerId));
+  if (form.dataset.form === 'sale' && !customerIsComplete(selectedCustomer)) {
+    updateSaleEligibility();
+    return;
+  }
   let endpoint;
   let payload;
   if (form.dataset.form === 'sale') {
-    const product = catalogs.inventory.find(item => item.id === Number(data.productId));
     endpoint = '/api/sales';
     payload = {
       customerId: Number(data.customerId),
       payment: data.payment,
-      items: [{ productId: Number(data.productId), quantity: Number(data.quantity), price: Number(product?.price) || 0 }]
+      items: [{ productId: Number(data.productId), quantity: Number(data.quantity), price: Number(selectedProduct?.price) || 0 }]
     };
   } else {
     endpoint = '/api/purchases';
@@ -89,8 +110,10 @@ async function submitForm(event) {
   try {
     const result = await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(payload) });
     if (form.dataset.form === 'sale') {
-      lastSale = { ...result, customer: catalogs.customers.find(item => item.id === Number(data.customerId)), product, quantity: Number(data.quantity), payment: data.payment };
+      lastSale = { ...result, customer: catalogs.customers.find(item => item.id === Number(data.customerId)), product: selectedProduct, quantity: Number(data.quantity), payment: data.payment };
       document.querySelector('[data-sale-print]').disabled = false;
+      renderGuarantee();
+      document.querySelector('#saleSummaryModal')?.classList.add('open');
     }
     message.textContent = `Operación registrada correctamente (#${result.id})`;
     message.className = 'form-message success';
@@ -101,31 +124,76 @@ async function submitForm(event) {
     message.className = 'form-message error';
   }
 
-  function renderSaleSummary() {
-    const customer = catalogs.customers.find(item => item.id === Number(document.querySelector('#saleCustomer')?.value));
-    const product = catalogs.inventory.find(item => item.id === Number(document.querySelector('#saleProduct')?.value));
-    const quantity = Number(document.querySelector('[data-form="sale"] [name="quantity"]')?.value || 0);
-    document.querySelector('#saleSummary').innerHTML = `<p><strong>Cliente:</strong> ${escapeHtml(customer?.name || 'Sin seleccionar')}</p><p><strong>Producto:</strong> ${escapeHtml(product?.name || 'Sin seleccionar')} × ${quantity}</p><p class="operation-total">Total <strong>${money.format((Number(product?.price) || 0) * quantity)}</strong></p>`;
-  }
-
-  document.querySelector('.cart-action')?.addEventListener('click', () => {
-    renderSaleSummary();
-    document.querySelector('#saleSummaryModal')?.classList.add('open');
-  });
-  document.querySelector('[data-sale-close]')?.addEventListener('click', () => document.querySelector('#saleSummaryModal')?.classList.remove('open'));
-  document.querySelector('[data-sale-print]')?.addEventListener('click', () => {
-    if (!lastSale) return;
-    const item = lastSale.product;
-    const inspection = String(item.productType || item.type).toUpperCase() === 'NUEVO'
-      ? '<p class="stamp">PRODUCTO NUEVO / GARANTÍA DE FÁBRICA</p>'
-      : `<h2>Inspección técnica</h2><ul><li>HW: ${item.hwPct || 100}%</li><li>Estética: ${item.aestheticPct || 95}%</li><li>Térmico: ${item.thermalPct || 98}%</li></ul>`;
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
-    if (!popup) return;
-    const safe = value => escapeHtml(value);
-    popup.document.write(`<html lang="es"><head><title>Certificado de Garantía ${safe(lastSale.id)}</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:40px auto;color:#20252b}h1{color:#20252b;border-bottom:4px solid #c8f05a;padding-bottom:14px}.stamp{padding:14px;background:#ecf7d8;font-weight:bold}li{margin:8px 0}</style></head><body><h1>Gaming Solutions - Certificado de Garantía</h1><p><strong>Venta:</strong> #GS-${safe(lastSale.id)} · <strong>Fecha:</strong> ${new Date().toLocaleDateString('es-GT')}</p><p><strong>Cliente:</strong> ${safe(lastSale.customer?.name || 'Cliente')}</p><h2>Producto(s) adquirido(s)</h2><p>${safe(item.name)} × ${lastSale.quantity}</p><p><strong>Tiempo de garantía:</strong> ${Number(item.warrantyMonths || 12)} meses</p>${inspection}<p>Conserve este certificado para solicitar servicio de garantía.</p></body></html>`);
-    popup.document.close(); popup.focus(); popup.print();
-  });
 }
+
+function renderSaleSummary() {
+  const customer = catalogs.customers.find(item => item.id === Number(document.querySelector('#saleCustomer')?.value));
+  const product = catalogs.inventory.find(item => item.id === Number(document.querySelector('#saleProduct')?.value));
+  const quantity = Number(document.querySelector('[data-form="sale"] [name="quantity"]')?.value || 0);
+  document.querySelector('#saleSummary').innerHTML = `<p><strong>Cliente:</strong> ${escapeHtml(customer?.name || 'Sin seleccionar')}</p><p><strong>Producto:</strong> ${escapeHtml(product?.name || 'Sin seleccionar')} × ${quantity}</p><p class="operation-total">Total <strong>${money.format((Number(product?.price) || 0) * quantity)}</strong></p>`;
+}
+
+function renderGuarantee() {
+  if (!lastSale) return;
+  const customer = lastSale.customer || {};
+  const item = lastSale.product || {};
+  const documentId = customer.nit || customer.dpi || 'Sin documento';
+  const inspection = String(item.productType || item.type).toUpperCase() === 'NUEVO'
+    ? '<p class="guarantee-stamp">PRODUCTO NUEVO / GARANTÍA DE FÁBRICA</p>'
+    : `<h4>Inspección técnica</h4><ul><li>HW: ${item.hwPct || 100}%</li><li>Estética: ${item.aestheticPct || 95}%</li><li>Térmico: ${item.thermalPct || 98}%</li></ul>`;
+  document.querySelector('#saleSummary').innerHTML = `<div class="guarantee-preview"><h3>Gaming Solutions - Certificado de Garantía</h3><p><strong>Venta:</strong> #GS-${escapeHtml(lastSale.id)} · <strong>Fecha:</strong> ${new Date().toLocaleDateString('es-GT')}</p><p><strong>Cliente:</strong> ${escapeHtml(customer.name)} · <strong>NIT/DPI:</strong> ${escapeHtml(documentId)}</p><p><strong>Producto:</strong> ${escapeHtml(item.name)} × ${lastSale.quantity}</p><p><strong>Garantía:</strong> ${Number(item.warrantyMonths || 12)} meses</p>${inspection}</div>`;
+  document.querySelector('[data-sale-print]').textContent = `🖨️ Imprimir Garantía (#GS-${lastSale.id})`;
+}
+
+document.querySelector('.cart-action')?.addEventListener('click', () => {
+  renderSaleSummary();
+  document.querySelector('#saleSummaryModal')?.classList.add('open');
+});
+document.querySelector('[data-sale-close]')?.addEventListener('click', () => document.querySelector('#saleSummaryModal')?.classList.remove('open'));
+document.querySelector('[data-sale-print]')?.addEventListener('click', () => {
+  if (!lastSale) return;
+  const item = lastSale.product;
+  const inspection = String(item.productType || item.type).toUpperCase() === 'NUEVO'
+    ? '<p class="stamp">PRODUCTO NUEVO / GARANTÍA DE FÁBRICA</p>'
+    : `<h2>Inspección técnica</h2><ul><li>HW: ${item.hwPct || 100}%</li><li>Estética: ${item.aestheticPct || 95}%</li><li>Térmico: ${item.thermalPct || 98}%</li></ul>`;
+  const popup = window.open('', '_blank', 'noopener,noreferrer');
+  if (!popup) return;
+  const safe = value => escapeHtml(value);
+  popup.document.write(`<html lang="es"><head><title>Certificado de Garantía ${safe(lastSale.id)}</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:40px auto;color:#20252b}h1{color:#20252b;border-bottom:4px solid #c8f05a;padding-bottom:14px}.stamp{padding:14px;background:#ecf7d8;font-weight:bold}li{margin:8px 0}</style></head><body><h1>Gaming Solutions - Certificado de Garantía</h1><p><strong>Venta:</strong> #GS-${safe(lastSale.id)} · <strong>Fecha:</strong> ${new Date().toLocaleDateString('es-GT')}</p><p><strong>Cliente:</strong> ${safe(lastSale.customer?.name || 'Cliente')}</p><h2>Producto(s) adquirido(s)</h2><p>${safe(item.name)} × ${lastSale.quantity}</p><p><strong>Tiempo de garantía:</strong> ${Number(item.warrantyMonths || 12)} meses</p>${inspection}<p>Conserve este certificado para solicitar servicio de garantía.</p></body></html>`);
+  popup.document.close(); popup.focus(); popup.print();
+});
+
+document.querySelector('#saleCustomer')?.addEventListener('change', updateSaleEligibility);
+document.querySelector('[data-sale-client-open]')?.addEventListener('click', () => {
+  const current = catalogs.customers.find(item => item.id === Number(document.querySelector('#saleCustomer')?.value));
+  const form = document.querySelector('[data-sale-client-form]');
+  if (current && form) Object.entries(current).forEach(([key, value]) => { if (form.elements[key]) form.elements[key].value = value || ''; });
+  document.querySelector('#saleClientModal')?.classList.add('open');
+});
+document.querySelector('[data-sale-client-close]')?.addEventListener('click', () => document.querySelector('#saleClientModal')?.classList.remove('open'));
+document.querySelector('[data-sale-client-form]')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = form.querySelector('.form-message');
+  const data = Object.fromEntries(new FormData(form));
+  if (!data.nit?.trim() && !data.dpi?.trim()) {
+    message.textContent = 'Ingresa NIT o DPI para habilitar la venta.';
+    message.className = 'form-message error';
+    return;
+  }
+  try {
+    const customer = await apiRequest('/api/clients', { method: 'POST', body: JSON.stringify(data) });
+    const selected = { ...data, ...customer, id: Number(customer.id) };
+    catalogs.customers.push(selected);
+    fillSelect('#saleCustomer', catalogs.customers, item => item.name);
+    document.querySelector('#saleCustomer').value = selected.id;
+    updateSaleEligibility();
+    form.closest('.modal')?.classList.remove('open');
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = 'form-message error';
+  }
+});
 
 document.querySelectorAll('[data-form]').forEach(form => form.addEventListener('submit', submitForm));
 document.querySelectorAll('[data-form] input, [data-form] select').forEach(input => input.addEventListener('input', updateTotals));

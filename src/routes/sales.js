@@ -4,7 +4,7 @@ const { requireRole } = require('../middleware/auth');
 
 const processedRequests = new Map();
 
-function createSalesRouter({ demoMode, demoSales, demoCustomers, demoInventory, poolPromise, transaction, postOrdsResource }) {
+function createSalesRouter({ demoMode, demoSales, demoCustomers, demoInventory, poolPromise, transaction, postOrdsResource, query }) {
   const router = express.Router();
 
   router.post('/', requireRole(['Administrador', 'Ventas']), async (req, res) => {
@@ -12,6 +12,17 @@ function createSalesRouter({ demoMode, demoSales, demoCustomers, demoInventory, 
       const { customerId, payment, items, notes } = req.body || {};
       const normalizedCustomerId = Number(customerId);
       if (!Number.isInteger(normalizedCustomerId) || normalizedCustomerId <= 0) throw new Error('Cliente inválido');
+      const customer = demoCustomers.find(item => item.id === normalizedCustomerId);
+      if (customer && !((customer.nit || customer.dpi) && customer.phone && customer.address)) {
+        throw new Error('El cliente seleccionado debe tener datos completos (NIT/DPI, Teléfono y Dirección) para realizar la compra.');
+      }
+      if (!demoMode && poolPromise && query) {
+        const rows = await query('SELECT NIT AS "nit", DPI AS "dpi", TELEFONO AS "phone", DIRECCION AS "address" FROM CLIENTES WHERE ID_CLIENTE = :id', { id: normalizedCustomerId });
+        const databaseCustomer = rows[0];
+        if (!databaseCustomer || !((databaseCustomer.nit || databaseCustomer.dpi) && databaseCustomer.phone && databaseCustomer.address)) {
+          throw new Error('El cliente seleccionado debe tener datos completos (NIT/DPI, Teléfono y Dirección) para realizar la compra.');
+        }
+      }
       if (!['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'OTRO'].includes(payment)) throw new Error('Método de pago inválido');
       const normalizedItems = normalizeItems(items);
       const requestKey = idempotencyKey(req);

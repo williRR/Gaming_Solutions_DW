@@ -27,7 +27,7 @@ BEGIN
     p_source => 'SELECT p.ID_PRODUCTO "id",p.NOMBRE "name",p.MARCA "brand",p.MODELO "model",p.TIPO_HARDWARE "type",p.TIPO_PRODUCTO "productType",p.PRECIO_VENTA "price",p.PRECIO_COMPRA "cost",p.STOCK "stock",p.IMAGEN_URL "imageUrl",p.TIEMPO_GARANTIA_MESES "warrantyMonths",c.CODIGO_CERTIFICADO "certificate",c.HARDWARE_ORIGINAL_PCT "hwPct",c.ESTADO_ESTETICO_PCT "aestheticPct",c.RENDIMIENTO_TERMICO_PCT "thermalPct" FROM PRODUCTOS p LEFT JOIN CERTIFICADOS_GS c ON c.ID_PRODUCTO=p.ID_PRODUCTO WHERE p.ID_PRODUCTO=:id AND p.ACTIVO=''S''');
   ORDS.DEFINE_HANDLER(p_module_name => 'gaming', p_pattern => 'productos/:id/', p_method => 'PUT',
     p_source_type => ORDS.SOURCE_TYPE_PLSQL, p_source => 'BEGIN
-      UPDATE PRODUCTOS SET NOMBRE=NVL(:name,NOMBRE),PRECIO_VENTA=NVL(:price,PRECIO_VENTA),PRECIO_COMPRA=NVL(:cost,PRECIO_COMPRA),STOCK=NVL(:stock,STOCK),IMAGEN_URL=NVL(:imageUrl,IMAGEN_URL),TIPO_PRODUCTO=NVL(:productType,TIPO_PRODUCTO),TIEMPO_GARANTIA_MESES=NVL(:warrantyMonths,TIEMPO_GARANTIA_MESES) WHERE ID_PRODUCTO=:id;
+      UPDATE PRODUCTOS SET NOMBRE=NVL(:nombre,NVL(:name,NOMBRE)),PRECIO_VENTA=NVL(:precio_venta,NVL(:price,PRECIO_VENTA)),PRECIO_COMPRA=NVL(:precio_compra,NVL(:cost,PRECIO_COMPRA)),STOCK=NVL(:stock,STOCK),IMAGEN_URL=NVL(:imagen_url,NVL(:imageUrl,IMAGEN_URL)),TIPO_PRODUCTO=NVL(:productType,TIPO_PRODUCTO),TIEMPO_GARANTIA_MESES=NVL(:tiempo_garantia_meses,NVL(:warrantyMonths,TIEMPO_GARANTIA_MESES)) WHERE ID_PRODUCTO=:id;
       IF SQL%ROWCOUNT=0 THEN :status:=404; HTP.P(''{"error":"Producto no encontrado"}''); ELSE HTP.P(''{"id":''||:id||'',"message":"Producto actualizado"}''); END IF; END;');
   COMMIT;
 END;

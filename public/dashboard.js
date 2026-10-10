@@ -2,7 +2,7 @@ const dashboardMoney = new Intl.NumberFormat('es-GT', { style: 'currency', curre
 const dashboardEsc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
 async function loadDashboardPage() {
-  const response = await fetch('/api/dashboard');
+  const response = await fetch('/api/summary');
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'No se pudo cargar el resumen');
   document.querySelector('#connectionMode').textContent = data.mode === 'demo' ? 'DEMO' : data.mode.toUpperCase();
