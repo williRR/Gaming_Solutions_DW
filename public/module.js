@@ -1,6 +1,12 @@
 const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ' });
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const get = async path => { const response = await fetch(path); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'No se pudo cargar el módulo'); return data; };
+const get = async path => {
+  const response = await fetch(path, { headers: { Accept: 'application/json' } });
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json') ? await response.json() : {};
+  if (!response.ok) throw new Error(data.error || `No se pudo cargar el módulo (HTTP ${response.status})`);
+  return data;
+};
 async function start() {
   const module = document.body.dataset.module;
   try {

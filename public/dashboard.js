@@ -2,9 +2,10 @@ const dashboardMoney = new Intl.NumberFormat('es-GT', { style: 'currency', curre
 const dashboardEsc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
 async function loadDashboardPage() {
-  const response = await fetch('/api/summary');
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'No se pudo cargar el resumen');
+  const response = await fetch('/api/summary', { headers: { Accept: 'application/json' } });
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json') ? await response.json() : {};
+  if (!response.ok) throw new Error(data.error || `No se pudo cargar el resumen (HTTP ${response.status})`);
   document.querySelector('#connectionMode').textContent = data.mode === 'demo' ? 'DEMO' : data.mode.toUpperCase();
   document.querySelector('#metricInventory').textContent = data.metrics.totalStock ?? data.metrics.inventory;
   document.querySelector('#metricSales').textContent = dashboardMoney.format(Number(data.metrics.monthlySales) || 0);
@@ -16,9 +17,18 @@ async function loadDashboardPage() {
     : '<div class="empty-state">No hay alertas de stock.</div>';
   const sales = data.sales || [];
   document.querySelector('#salesList').innerHTML = sales.length
-    ? data.sales.map(sale => `<div class="sale"><div class="sale-info"><span class="sale-name">${dashboardEsc(sale.customer || 'Cliente')}</span><span class="sale-date">Venta #${dashboardEsc(sale.id)} · ${dashboardEsc(sale.date)}</span></div><strong class="sale-total">${dashboardMoney.format(Number(sale.total) || 0)}</strong></div>`).join('')
+    ? sales.map(sale => `<div class="sale"><div class="sale-info"><span class="sale-name">${dashboardEsc(sale.customer || 'Cliente')}</span><span class="sale-date">Venta #${dashboardEsc(sale.id)} · ${dashboardEsc(sale.date)}</span></div><strong class="sale-total">${dashboardMoney.format(Number(sale.total) || 0)}</strong></div>`).join('')
     : '<div class="empty-state">No hay ventas recientes.</div>';
   document.querySelector('#sidebarStatus').textContent = 'Conectado';
 }
-document.querySelector('#logout').addEventListener('click', () => { window.GSAuth.clearSession(); window.location.replace('/login.html'); });
-loadDashboardPage().catch(error => { document.querySelector('#sidebarStatus').textContent = error.message; });
+document.querySelector('#logout')?.addEventListener('click', () => { window.GSAuth.clearSession(); window.location.replace('/login.html'); });
+loadDashboardPage().catch(error => {
+  ['#metricInventory', '#metricSales', '#metricLowStock', '#metricCustomers'].forEach(selector => {
+    const element = document.querySelector(selector);
+    if (element) element.textContent = '--';
+  });
+  document.querySelector('#lowStockList')?.replaceChildren(Object.assign(document.createElement('div'), { className: 'empty-state', textContent: 'No se pudo cargar el inventario.' }));
+  document.querySelector('#salesList')?.replaceChildren(Object.assign(document.createElement('div'), { className: 'empty-state', textContent: 'No se pudo cargar el historial de ventas.' }));
+  const status = document.querySelector('#sidebarStatus');
+  if (status) status.textContent = error.message;
+});

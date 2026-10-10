@@ -29,7 +29,8 @@ const ordsInventoryUrl = /\/(productos|consolas)\/?$/i.test(configuredInventoryU
 // Used to build sibling ORDS resources such as POST /productos/.
 const ordsBaseUrl = (configuredOrdsBaseUrl || ordsInventoryUrl.replace(/(productos|consolas)\/?$/, '')).replace(/\/+$/, '') + '/';
 // Can be overridden if the ORDS WAF requires a different User-Agent.
-const ordsUserAgent = process.env.ORDS_USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+const ordsUserAgent = process.env.ORDS_USER_AGENT ||
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 const hasOracleCredentials = Boolean(
   process.env.ORACLE_USER &&
