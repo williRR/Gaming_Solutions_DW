@@ -111,7 +111,12 @@ if (demoMode) {
 
 function persistDemoData() {
   if (demoMode) {
-    createDemoPersistence({ inventory: demoInventory, sales: demoSales, customers: demoCustomers, providers: demoProviders, audit: demoAudit });
+    try {
+      createDemoPersistence({ inventory: demoInventory, sales: demoSales, customers: demoCustomers, providers: demoProviders, audit: demoAudit });
+    } catch (error) {
+      console.error('No se pudo persistir el almacenamiento demo:', error.message);
+      throw error;
+    }
   }
 }
 

@@ -1,7 +1,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const dataDirectory = path.join(__dirname, '..', 'data');
+const dataDirectory = process.env.VERCEL
+  ? path.join('/tmp', 'gaming-solutions-data')
+  : path.join(__dirname, '..', 'data');
 const dataFile = path.join(dataDirectory, 'demo_db.json');
 
 function loadDemoData(defaults) {
