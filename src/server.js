@@ -30,7 +30,7 @@ const ordsInventoryUrl = /\/(productos|consolas)\/?$/i.test(configuredInventoryU
 const ordsBaseUrl = (configuredOrdsBaseUrl || ordsInventoryUrl.replace(/(productos|consolas)\/?$/, '')).replace(/\/+$/, '') + '/';
 // Can be overridden if the ORDS WAF requires a different User-Agent.
 const ordsUserAgent = process.env.ORDS_USER_AGENT ||
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const hasOracleCredentials = Boolean(
   process.env.ORACLE_USER &&
@@ -366,17 +366,25 @@ async function requestOrds(url, options = {}) {
     const response = await fetch(url, {
       ...options,
       headers: {
-        Accept: 'application/json',
+        Accept: 'application/json, text/plain, */*',
         'Content-Type': 'application/json',
         'User-Agent': ordsUserAgent,
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        'Cache-Control': 'no-cache',
         ...(options.headers || {})
       },
       signal: AbortSignal.timeout(15000)
     });
     const responseBody = await response.text();
     if (!response.ok) {
+      const wafBlocked = response.status === 403 && /fw_error_www|forbidden|incident number/i.test(responseBody);
       console.error(`ORDS ${options.method || 'GET'} ${url} respondió HTTP ${response.status}: ${responseBody || 'sin cuerpo'}`);
-      throw new Error(`ORDS respondió HTTP ${response.status}: ${responseBody || 'sin detalle'}`);
+      const error = new Error(wafBlocked
+        ? 'ORDS rechazó la petición con HTTP 403 (WAF). Solicita permitir el origen de Vercel en Oracle APEX/ORDS.'
+        : `ORDS respondió HTTP ${response.status}: ${responseBody || 'sin detalle'}`);
+      error.code = wafBlocked ? 'ORDS_WAF_FORBIDDEN' : 'ORDS_HTTP_ERROR';
+      error.status = response.status;
+      throw error;
     }
     if (!responseBody) return { ok: true };
     try {
@@ -781,15 +789,11 @@ app.put('/api/products/:id', requireRole(['Administrador', 'Almacen']), async (r
       return res.json({ id: productId, ok: true });
     }
     if (ordsInventoryUrl && !poolPromise) {
-      const response = await fetch(`${ordsBaseUrl}productos/${productId}/`, {
+      const result = await requestOrds(`${ordsBaseUrl}productos/${productId}/`, {
         method: 'PUT',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': ordsUserAgent },
-        body: JSON.stringify({ id: productId, nombre: name, precio_venta: price, precio_compra: cost, stock, imagen_url: image, tiempo_garantia_meses: warranty }),
-        signal: AbortSignal.timeout(10000)
+        body: JSON.stringify({ id: productId, nombre: name, precio_venta: price, precio_compra: cost, stock, imagen_url: image, tiempo_garantia_meses: warranty })
       });
-      const body = await response.text();
-      if (!response.ok) return res.status(502).json({ error: `ORDS respondió HTTP ${response.status}: ${body || 'sin detalle'}` });
-      return res.json(body ? JSON.parse(body) : { id: productId, ok: true });
+      return res.json(result);
     }
     if (!poolPromise) return res.status(501).json({ error: oracleUnavailableMessage });
     const result = await transaction(connection => connection.execute(

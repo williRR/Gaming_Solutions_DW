@@ -6,6 +6,7 @@ async function loadDashboardPage() {
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : {};
   if (!response.ok) throw new Error(data.error || `No se pudo cargar el resumen (HTTP ${response.status})`);
+  if (!data.metrics || typeof data.metrics !== 'object') throw new Error('El resumen devolvió una estructura inválida');
   document.querySelector('#connectionMode').textContent = data.mode === 'demo' ? 'DEMO' : data.mode.toUpperCase();
   document.querySelector('#metricInventory').textContent = data.metrics.totalStock ?? data.metrics.inventory;
   document.querySelector('#metricSales').textContent = dashboardMoney.format(Number(data.metrics.monthlySales) || 0);
