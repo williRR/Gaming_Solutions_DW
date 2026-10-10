@@ -4,7 +4,7 @@ const { requireRole } = require('../middleware/auth');
 
 const processedRequests = new Map();
 
-function createSalesRouter({ demoMode, demoSales, demoCustomers, demoInventory, poolPromise, transaction, postOrdsResource, query }) {
+function createSalesRouter({ demoMode, demoSales, demoCustomers, demoInventory, poolPromise, transaction, postOrdsResource, query, persistDemoData }) {
   const router = express.Router();
 
   router.post('/', requireRole(['Administrador', 'Ventas']), async (req, res) => {
@@ -54,6 +54,7 @@ function createSalesRouter({ demoMode, demoSales, demoCustomers, demoInventory, 
           status: 'COMPLETADA',
           notes
         });
+        persistDemoData?.();
         if (requestKey) processedRequests.set(requestKey, result);
         return res.status(201).json(result);
       }
@@ -121,7 +122,8 @@ function createSalesRouter({ demoMode, demoSales, demoCustomers, demoInventory, 
       if (requestKey) processedRequests.set(requestKey, result);
       return res.status(201).json(result);
     } catch (error) {
-      return res.status(error.message.startsWith('Stock insuficiente') ? 400 : 400).json({ error: error.message });
+      const isValidation = /inválido|inválida|insuficiente|obligatorio|Agrega|completos|Método/.test(error.message);
+      return res.status(isValidation ? 400 : 502).json({ error: error.message });
     }
   });
 

@@ -10,7 +10,7 @@ BEGIN
   ORDS.DEFINE_HANDLER(p_module_name => 'gaming', p_pattern => 'clientes/', p_method => 'POST',
     p_source_type => ORDS.SOURCE_TYPE_PLSQL, p_source => 'DECLARE l_id NUMBER; BEGIN
       INSERT INTO CLIENTES(NOMBRE,TELEFONO,EMAIL,DIRECCION,NIT,DPI) VALUES(:name,:phone,:email,:address,:nit,:dpi)
-      RETURNING ID_CLIENTE INTO l_id; :status:=201; HTP.P(''{"id":''||l_id||'',"name":"''||REPLACE(:name,''"'',''\\"'')||''"}''); END;');
+      RETURNING ID_CLIENTE INTO l_id; COMMIT; :status:=201; HTP.P(''{"id":''||l_id||'',"name":"''||REPLACE(:name,''"'',''\\"'')||''"}''); END;');
 
   ORDS.DEFINE_TEMPLATE(p_module_name => 'gaming', p_pattern => 'proveedores/');
   ORDS.DEFINE_HANDLER(p_module_name => 'gaming', p_pattern => 'proveedores/', p_method => 'GET',
@@ -19,7 +19,7 @@ BEGIN
   ORDS.DEFINE_HANDLER(p_module_name => 'gaming', p_pattern => 'proveedores/', p_method => 'POST',
     p_source_type => ORDS.SOURCE_TYPE_PLSQL, p_source => 'DECLARE l_id NUMBER; BEGIN
       INSERT INTO PROVEEDORES(NOMBRE,TIPO_PROVEEDOR,TELEFONO,EMAIL,DIRECCION,NIT) VALUES(:name,NVL(:type,''PARTICULAR''),:phone,:email,:address,:nit)
-      RETURNING ID_PROVEEDOR INTO l_id; :status:=201; HTP.P(''{"id":''||l_id||'',"name":"''||REPLACE(:name,''"'',''\\"'')||''"}''); END;');
+      RETURNING ID_PROVEEDOR INTO l_id; COMMIT; :status:=201; HTP.P(''{"id":''||l_id||'',"name":"''||REPLACE(:name,''"'',''\\"'')||''"}''); END;');
 
   ORDS.DEFINE_TEMPLATE(p_module_name => 'gaming', p_pattern => 'productos/:id/');
   ORDS.DEFINE_HANDLER(p_module_name => 'gaming', p_pattern => 'productos/:id/', p_method => 'GET',
@@ -28,7 +28,7 @@ BEGIN
   ORDS.DEFINE_HANDLER(p_module_name => 'gaming', p_pattern => 'productos/:id/', p_method => 'PUT',
     p_source_type => ORDS.SOURCE_TYPE_PLSQL, p_source => 'BEGIN
       UPDATE PRODUCTOS SET NOMBRE=NVL(:nombre,NVL(:name,NOMBRE)),PRECIO_VENTA=NVL(:precio_venta,NVL(:price,PRECIO_VENTA)),PRECIO_COMPRA=NVL(:precio_compra,NVL(:cost,PRECIO_COMPRA)),STOCK=NVL(:stock,STOCK),IMAGEN_URL=NVL(:imagen_url,NVL(:imageUrl,IMAGEN_URL)),TIPO_PRODUCTO=NVL(:productType,TIPO_PRODUCTO),TIEMPO_GARANTIA_MESES=NVL(:tiempo_garantia_meses,NVL(:warrantyMonths,TIEMPO_GARANTIA_MESES)) WHERE ID_PRODUCTO=:id;
-      IF SQL%ROWCOUNT=0 THEN :status:=404; HTP.P(''{"error":"Producto no encontrado"}''); ELSE HTP.P(''{"id":''||:id||'',"message":"Producto actualizado"}''); END IF; END;');
+      IF SQL%ROWCOUNT=0 THEN :status:=404; HTP.P(''{"error":"Producto no encontrado"}''); ELSE COMMIT; HTP.P(''{"id":''||:id||'',"message":"Producto actualizado"}''); END IF; END;');
   COMMIT;
 END;
 /

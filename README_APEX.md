@@ -50,6 +50,12 @@ Después publique el módulo ORDS y configure `ORDS_INVENTORY_URL` apuntando a
 5. En la Terminal de ventas, el botón **Ver Carrito** abre el resumen sin registrar la salida; el certificado se habilita únicamente después de confirmar la venta.
 6. Las URLs de Drive se normalizan en el navegador a `https://lh3.googleusercontent.com/d/ID`; la base de datos conserva solo texto.
 
+### Configuración de persistencia
+
+- Producción: configure `DEMO_MODE=false`, `ORDS_INVENTORY_URL` y un `JWT_SECRET` largo y aleatorio en el entorno del proceso. Con esta configuración el backend usa ORDS/Oracle exclusivamente; si faltan ORDS, credenciales Oracle o el secreto JWT, el arranque muestra un error y no cambia silenciosamente a memoria demo.
+- Presentación offline: ejecute `DEMO_MODE=true npm start`. Las altas y cambios de clientes, proveedores, productos, compras y ventas se guardan en `data/demo_db.json` mediante escritura atómica. Este archivo es local y está excluido de Git.
+- No copie valores de ejemplo a `.env` en producción ni incluya credenciales, wallets o secretos en el repositorio.
+
 ---
 
 ## 3. Ejemplo de Uso con Curl / Postman

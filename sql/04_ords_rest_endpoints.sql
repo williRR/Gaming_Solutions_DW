@@ -98,6 +98,7 @@ BEGIN
                              CASE WHEN l_type = ''LAPTOP'' THEN 18 WHEN l_type = ''RETRO'' THEN 6 ELSE 12 END
                            );
 
+                           COMMIT;
                            :status := 201;
                            HTP.P(''{"id": '' || l_id_prod || '', "certificate": "'' || l_codigo_cert || ''", "message": "Producto y certificado creados exitosamente"}'');
                          END;'
@@ -178,6 +179,7 @@ BEGIN
                              VALUES (l_id_venta, :productId, NVL(:quantity, 1), :price);
                            END IF;
 
+                           COMMIT;
                            :status := 201;
                            HTP.P(''{"id": '' || l_id_venta || '', "message": "Venta registrada con éxito"}'');
                          END;'

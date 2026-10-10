@@ -4,7 +4,7 @@ const { requireRole } = require('../middleware/auth');
 
 const processedRequests = new Map();
 
-function createPurchasesRouter({ demoMode, demoInventory, poolPromise, transaction, postOrdsResource }) {
+function createPurchasesRouter({ demoMode, demoInventory, poolPromise, transaction, postOrdsResource, persistDemoData }) {
   const router = express.Router();
 
   router.post('/', requireRole(['Administrador', 'Almacen']), async (req, res) => {
@@ -24,6 +24,7 @@ function createPurchasesRouter({ demoMode, demoInventory, poolPromise, transacti
           product.cost = item.cost;
           product.status = product.stock <= 3 ? 'Stock bajo' : 'Disponible';
         });
+        persistDemoData?.();
         const result = { id: 2001 + Date.now() % 1000, total: totalOf(items), message: 'Compra registrada correctamente' };
         if (requestKey) processedRequests.set(requestKey, result);
         return res.status(201).json(result);

@@ -14,6 +14,7 @@ const {
 const { createSalesRouter } = require('./routes/sales');
 const { createPurchasesRouter } = require('./routes/purchases');
 const { createMobileRouter } = require('./routes/mobile');
+const { loadDemoData, createDemoPersistence } = require('./demo-store');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -50,7 +51,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Inventario Demo con Certificación #GS e Inspección Técnica
-const demoInventory = [
+let demoInventory = [
   { id: 1, name: 'PlayStation 5 Slim Digital', brand: 'Sony', model: 'CFI-2015', type: 'NEXT_GEN', price: 499.99, cost: 420.00, stock: 8, status: 'Disponible', certificate: '#GS-2201', hwPct: 100, aestheticPct: 96, thermalPct: 98, warrantyMonths: 12 },
   { id: 2, name: 'Nintendo Switch OLED White', brand: 'Nintendo', model: 'HEG-001', type: 'NEXT_GEN', price: 349.99, cost: 290.00, stock: 5, status: 'Disponible', certificate: '#GS-2202', hwPct: 100, aestheticPct: 98, thermalPct: 97, warrantyMonths: 12 },
   { id: 3, name: 'Xbox Series X 1TB Black', brand: 'Microsoft', model: 'RRT-00010', type: 'NEXT_GEN', price: 479.99, cost: 400.00, stock: 3, status: 'Stock bajo', certificate: '#GS-2203', hwPct: 100, aestheticPct: 94, thermalPct: 96, warrantyMonths: 12 },
@@ -61,24 +62,24 @@ const demoInventory = [
   { id: 8, name: 'Sega Genesis Model 1 HD', brand: 'Sega', model: 'MK-1601', type: 'RETRO', price: 159.99, cost: 75.00, stock: 4, status: 'Disponible', certificate: '#GS-2208', hwPct: 100, aestheticPct: 93, thermalPct: 97, warrantyMonths: 6 }
 ];
 
-const demoSales = [
+let demoSales = [
   { id: 1048, customer: 'María González', date: '2026-09-28', total: 849.98, payment: 'TARJETA', status: 'COMPLETADA', notes: 'Boleta emitida presencial' },
   { id: 1047, customer: 'Carlos Ramírez', date: '2026-09-27', total: 189.99, payment: 'EFECTIVO', status: 'COMPLETADA', notes: 'Pago contra entrega en tienda' },
   { id: 1046, customer: 'Ana Torres', date: '2026-09-26', total: 1499.99, payment: 'TRANSFERENCIA', status: 'COMPLETADA', notes: 'Transferencia confirmada en laboratorio' }
 ];
 
-const demoCustomers = [
+let demoCustomers = [
   { id: 1, name: 'María González', nit: '1234567-8', phone: '5555-0101', address: 'Zona 10, Guatemala' },
   { id: 2, name: 'Carlos Ramírez', dpi: '1234 56789 0101', phone: '5555-0102', address: 'Zona 1, Guatemala' },
   { id: 3, name: 'Ana Torres' }
 ];
 
-const demoProviders = [
+let demoProviders = [
   { id: 1, name: 'Distribuciones Next Level S.A.C.' },
   { id: 2, name: 'Jorge Mendoza (Coleccionista)' }
 ];
 
-const demoAudit = [
+let demoAudit = [
   { id: 1, operation: 'INICIO', table: 'SISTEMA', timestamp: new Date().toISOString(), dbUser: 'DEMO' },
   { id: 2, operation: 'SEED', table: 'PRODUCTOS', timestamp: new Date().toISOString(), dbUser: 'DEMO' }
 ];
@@ -88,6 +89,31 @@ const demoUsers = [
   { id_usuario: 2, username: 'ventas', nombre: 'María González - Ventas', rol: 'Ventas', passwordHash: bcrypt.hashSync('ventas123', 10) },
   { id_usuario: 3, username: 'almacen', nombre: 'Roberto Silva - Almacén', rol: 'Almacen', passwordHash: bcrypt.hashSync('almacen123', 10) }
 ];
+
+if (demoMode) {
+  const stored = loadDemoData({
+    inventory: demoInventory,
+    sales: demoSales,
+    customers: demoCustomers,
+    providers: demoProviders,
+    audit: demoAudit
+  });
+  demoInventory = stored.inventory;
+  demoSales = stored.sales;
+  demoCustomers = stored.customers;
+  demoProviders = stored.providers;
+  demoAudit = stored.audit;
+}
+
+function persistDemoData() {
+  if (demoMode) {
+    createDemoPersistence({ inventory: demoInventory, sales: demoSales, customers: demoCustomers, providers: demoProviders, audit: demoAudit });
+  }
+}
+
+if (!demoMode && !ordsInventoryUrl && !hasOracleCredentials) {
+  console.error('CONFIGURACIÓN INVÁLIDA: DEMO_MODE=false requiere ORDS_INVENTORY_URL o credenciales Oracle. No se usará almacenamiento en memoria.');
+}
 
 configureAuth({ demoMode, query, demoUsers });
 
@@ -149,14 +175,16 @@ app.use('/api/sales', createSalesRouter({
   poolPromise,
   transaction,
   postOrdsResource,
-  query
+  query,
+  persistDemoData
 }));
 app.use('/api/purchases', createPurchasesRouter({
   demoMode,
   demoInventory,
   poolPromise,
   transaction,
-  postOrdsResource
+  postOrdsResource,
+  persistDemoData
 }));
 app.use('/api/mobile', createMobileRouter({
   demoMode,
@@ -458,6 +486,7 @@ app.post('/api/clients', requireRole(['Administrador', 'Ventas']), async (req, r
     if (demoMode) {
       const id = Math.max(0, ...demoCustomers.map(customer => customer.id)) + 1;
       demoCustomers.push({ id, name, phone, email, address, nit, dpi });
+      persistDemoData();
       return res.status(201).json({ id });
     }
     if (ordsInventoryUrl && !poolPromise) {
@@ -467,7 +496,10 @@ app.post('/api/clients', requireRole(['Administrador', 'Ventas']), async (req, r
       } catch (error) { return res.status(502).json({ error: error.message }); }
     }
     return res.status(501).json({ error: 'El alta de clientes requiere ORDS.' });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) {
+    const isValidation = /obligatorio|inválido|inválida|producto|Agrega|Stock insuficiente|no son válidos/.test(error.message);
+    res.status(isValidation ? 400 : 502).json({ error: error.message });
+  }
 });
 
 // CREATE provider: POST /api/providers registers a supplier for purchases.
@@ -480,6 +512,7 @@ app.post('/api/providers', requireRole(['Administrador', 'Almacen']), async (req
     if (demoMode) {
       const id = Math.max(0, ...demoProviders.map(provider => provider.id)) + 1;
       demoProviders.push({ id, name, type: providerType, phone, email, address, nit });
+      persistDemoData();
       return res.status(201).json({ id, name });
     }
     if (ordsInventoryUrl && !poolPromise) {
@@ -523,6 +556,7 @@ app.post('/api/inventory', requireRole(['Administrador', 'Almacen']), async (req
         certificate, hwPct: 100, aestheticPct: 95, thermalPct: 98, warrantyMonths: itemType === 'LAPTOP' ? 18 : itemType === 'RETRO' ? 6 : 12
       };
       demoInventory.unshift(newItem);
+      persistDemoData();
       return res.status(201).json({ id, certificate });
     }
     if (ordsInventoryUrl && !poolPromise) {
@@ -575,6 +609,7 @@ app.patch('/api/inventory/:id', requireRole(['Administrador', 'Almacen']), async
       if (imageUrl !== undefined) item.imageUrl = imageUrl;
       if (productType !== undefined) item.productType = productType;
       if (warrantyMonths !== undefined) item.warrantyMonths = Number(warrantyMonths);
+      persistDemoData();
       return res.json({ ok: true });
     }
     if (ordsInventoryUrl && !poolPromise) {
@@ -643,6 +678,7 @@ app.delete('/api/inventory/:id', requireRole(['Administrador']), async (req, res
     const index = demoInventory.findIndex(item => item.id === productId);
     if (index === -1) return res.status(404).json({ error: 'Producto no encontrado' });
     demoInventory.splice(index, 1);
+    persistDemoData();
     return res.json({ ok: true });
   }
   if (ordsInventoryUrl && !poolPromise) {
@@ -675,6 +711,7 @@ app.patch('/api/inventory/:id/certificate', requireRole(['Administrador', 'Almac
     if (aestheticPct !== undefined) product.aestheticPct = Number(aestheticPct);
     if (thermalPct !== undefined) product.thermalPct = Number(thermalPct);
     if (warrantyMonths !== undefined) product.warrantyMonths = Number(warrantyMonths);
+    persistDemoData();
     return res.json({ ok: true });
   }
   if (ordsInventoryUrl && !poolPromise) {
@@ -703,6 +740,7 @@ app.post('/api/sales', requireRole(['Administrador', 'Ventas']), async (req, res
         payment,
         status: 'COMPLETADA'
       });
+      persistDemoData();
       return res.status(201).json({ id: newId });
     }
     if (ordsInventoryUrl && !poolPromise) {
@@ -748,7 +786,10 @@ app.post('/api/sales', requireRole(['Administrador', 'Ventas']), async (req, res
       return saleId;
     }, req.user);
     res.status(201).json({ id });
-  } catch (error) { res.status(400).json({ error: error.message }); }
+  } catch (error) {
+    const isValidation = /obligatorio|inválido|inválida|producto|Agrega|Stock insuficiente|no son válidos/.test(error.message);
+    res.status(isValidation ? 400 : 502).json({ error: error.message });
+  }
 });
 
 // POST Register Purchase from Supplier
