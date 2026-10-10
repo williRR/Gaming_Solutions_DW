@@ -53,8 +53,11 @@ Después publique el módulo ORDS y configure `ORDS_INVENTORY_URL` apuntando a
 ### Configuración de persistencia
 
 - Producción: configure `DEMO_MODE=false`, `ORDS_INVENTORY_URL` y un `JWT_SECRET` largo y aleatorio en el entorno del proceso. Con esta configuración el backend usa ORDS/Oracle exclusivamente; si faltan ORDS, credenciales Oracle o el secreto JWT, el arranque muestra un error y no cambia silenciosamente a memoria demo.
+- También puede configurarse `ORDS_BASE_URL` con la URL del módulo (`.../gaming`); si se define, el backend deriva automáticamente `/productos/`, `/dashboard/`, `/clientes/` y `/ventas/`. `ORDS_BASE_URL` tiene prioridad sobre la base derivada de `ORDS_INVENTORY_URL`.
 - Presentación offline: ejecute `DEMO_MODE=true npm start`. Las altas y cambios de clientes, proveedores, productos, compras y ventas se guardan en `data/demo_db.json` mediante escritura atómica. Este archivo es local y está excluido de Git.
 - No copie valores de ejemplo a `.env` en producción ni incluya credenciales, wallets o secretos en el repositorio.
+- Si el despliegue usa únicamente ORDS y no tiene `ORACLE_CONNECT_STRING`, configure `ADMIN_USERNAME` y `ADMIN_PASSWORD` como variables protegidas de Vercel, o publique un handler seguro `/usuarios/` que devuelva el hash del usuario solicitado para que el backend lo verifique con bcrypt. No se usa una clave JWT predeterminada.
+- El backend no asume que `/usuarios/` existe ni envía contraseñas a un GET por defecto. Para un proveedor ORDS dedicado, configure `ORDS_AUTH_URL` únicamente si el endpoint implementa autenticación segura por POST o un mecanismo equivalente; la opción recomendada es autenticar contra Oracle usando `ORACLE_USER`, `ORACLE_PASSWORD` y `ORACLE_CONNECT_STRING`.
 
 ---
 

@@ -20,10 +20,14 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const apiVersion = '2026.09.28-apex-ords';
 const demoMode = process.env.DEMO_MODE === 'true';
-// ORDS GET URL for the product collection; configure the full URL ending in /productos/.
-const ordsInventoryUrl = process.env.ORDS_INVENTORY_URL || '';
+// Configure either the full product collection URL or the ORDS module base URL.
+const configuredOrdsBaseUrl = process.env.ORDS_BASE_URL || '';
+const configuredInventoryUrl = process.env.ORDS_INVENTORY_URL || '';
+const ordsInventoryUrl = /\/(productos|consolas)\/?$/i.test(configuredInventoryUrl)
+  ? `${configuredInventoryUrl.replace(/\/+$/, '')}/`
+  : `${(configuredOrdsBaseUrl || configuredInventoryUrl).replace(/\/+$/, '')}/productos/`;
 // Used to build sibling ORDS resources such as POST /productos/.
-const ordsBaseUrl = ordsInventoryUrl.replace(/(productos|consolas)\/?$/, '');
+const ordsBaseUrl = (configuredOrdsBaseUrl || ordsInventoryUrl.replace(/(productos|consolas)\/?$/, '')).replace(/\/+$/, '') + '/';
 // Can be overridden if the ORDS WAF requires a different User-Agent.
 const ordsUserAgent = process.env.ORDS_USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
 
@@ -115,7 +119,39 @@ if (!demoMode && !ordsInventoryUrl && !hasOracleCredentials) {
   console.error('CONFIGURACIÓN INVÁLIDA: DEMO_MODE=false requiere ORDS_INVENTORY_URL o credenciales Oracle. No se usará almacenamiento en memoria.');
 }
 
-configureAuth({ demoMode, query, demoUsers });
+async function loginViaOrds(username, password) {
+  if (process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD &&
+      username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+    return { id_usuario: 1, nombre: 'Administrador', rol: 'Administrador' };
+  }
+  const authUrl = process.env.ORDS_AUTH_URL;
+  if (!authUrl) {
+    const error = new Error('ORDS no publica un endpoint de autenticación. Configura ORACLE_* o ADMIN_USERNAME/ADMIN_PASSWORD.');
+    error.code = 'AUTH_PROVIDER_NOT_CONFIGURED';
+    throw error;
+  }
+  const payload = await requestOrds(authUrl.replace(/\/+$/, ''), {
+    method: 'POST',
+    body: JSON.stringify({ username, password })
+  });
+  const user = singleCollectionItem(payload);
+  if (!user) return null;
+  const passwordHash = user.passwordHash || user.password_hash || user.CLAVE_HASH;
+  if (!passwordHash || !(await bcrypt.compare(password, passwordHash))) return null;
+  return {
+    id_usuario: user.id_usuario || user.ID_USUARIO || user.id,
+    nombre: user.nombre || user.NOMBRE_COMPLETO || user.name,
+    rol: user.rol || user.NOMBRE_ROL || user.role,
+    passwordHash
+  };
+}
+
+configureAuth({
+  demoMode,
+  query: poolPromise ? query : null,
+  loginViaOrds: !poolPromise && process.env.ORDS_AUTH_URL ? loginViaOrds : null,
+  demoUsers
+});
 
 async function setOracleActor(connection, user) {
   if (user?.id_usuario) {
@@ -240,6 +276,60 @@ function collectionItems(payload) {
   return Array.isArray(payload) ? payload : payload.items || [];
 }
 
+function ordsValue(item, names, fallback = null) {
+  const key = names.find(name => item?.[name] !== undefined && item?.[name] !== null);
+  return key ? item[key] : fallback;
+}
+
+function normalizeOrdsCustomer(item) {
+  return {
+    id: Number(ordsValue(item, ['id', 'id_cliente', 'ID_CLIENTE'], 0)),
+    name: ordsValue(item, ['name', 'nombre', 'NOMBRE'], 'Cliente'),
+    phone: ordsValue(item, ['phone', 'telefono', 'TELEFONO'], ''),
+    address: ordsValue(item, ['address', 'direccion', 'DIRECCION'], ''),
+    nit: ordsValue(item, ['nit', 'NIT'], ''),
+    dpi: ordsValue(item, ['dpi', 'DPI'], '')
+  };
+}
+
+function normalizeOrdsSale(item) {
+  return {
+    id: Number(ordsValue(item, ['id', 'id_venta', 'ID_VENTA'], 0)),
+    date: ordsValue(item, ['date', 'fecha', 'fecha_venta', 'FECHA_VENTA'], ''),
+    total: Number(ordsValue(item, ['total', 'total_venta', 'TOTAL_VENTA'], 0)),
+    customer: ordsValue(item, ['customer', 'cliente', 'nombre_cliente', 'NOMBRE_CLIENTE'], 'Cliente'),
+    payment: ordsValue(item, ['payment', 'metodo_pago', 'METODO_PAGO'], ''),
+    status: ordsValue(item, ['status', 'estado_venta', 'ESTADO_VENTA'], '')
+  };
+}
+
+async function aggregateOrdsSummary() {
+  const [customersPayload, productsPayload, salesPayload] = await Promise.all([
+    getOrdsCollection(`${ordsBaseUrl}clientes/`),
+    getOrdsCollection(ordsInventoryUrl),
+    getOrdsCollection(`${ordsBaseUrl}ventas/consulta/`).catch(error => {
+      console.error('ORDS /ventas/consulta/ no disponible; intentando /ventas/:', error.message);
+      return getOrdsCollection(`${ordsBaseUrl}ventas/`);
+    })
+  ]);
+  const customers = collectionItems(customersPayload).map(normalizeOrdsCustomer);
+  const products = collectionItems(productsPayload).map(normalizeOrdsItem);
+  const sales = collectionItems(salesPayload).map(normalizeOrdsSale);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const monthlySales = sales
+    .filter(sale => String(sale.date).slice(0, 7) === currentMonth)
+    .reduce((sum, sale) => sum + (Number.isFinite(sale.total) ? sale.total : 0), 0);
+  return {
+    customers: customers.length,
+    totalStock: products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0),
+    monthlySales,
+    lowStock: products.filter(product => Number(product.stock) <= 3).length,
+    inventory: products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0),
+    inventoryItems: products,
+    sales: sales.slice(-5).reverse()
+  };
+}
+
 function singleCollectionItem(payload) {
   if (Array.isArray(payload)) return payload[0] || null;
   if (Array.isArray(payload.items)) return payload.items[0] || null;
@@ -253,26 +343,56 @@ async function getOrdsItems(resource) {
 
 // ORDS GET transport shared by inventory and other collection endpoints.
 async function getOrdsCollection(url) {
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json', 'User-Agent': ordsUserAgent },
-    signal: AbortSignal.timeout(10000)
-  });
-  if (!response.ok) throw new Error(`ORDS respondió HTTP ${response.status}`);
-  return response.json();
+  return requestOrds(url, { method: 'GET' });
 }
 
 // ORDS POST transport; forwards a JSON payload and parses the JSON response.
 async function postOrdsResource(resource, payload, user) {
   const body = user ? { ...payload, id_usuario: Number(user.id_usuario) } : payload;
-  const response = await fetch(`${ordsBaseUrl}${resource}/`, {
+  return requestOrds(`${ordsBaseUrl}${resource.replace(/^\/+/, '').replace(/\/?$/, '/')}`, {
     method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': ordsUserAgent },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(10000)
+    body: JSON.stringify(body)
   });
-  const responseBody = await response.text();
-  if (!response.ok) throw new Error(`ORDS respondió HTTP ${response.status}: ${responseBody || 'sin detalle'}`);
-  return responseBody ? JSON.parse(responseBody) : { ok: true };
+}
+
+async function requestOrds(url, options = {}) {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': ordsUserAgent,
+        ...(options.headers || {})
+      },
+      signal: AbortSignal.timeout(15000)
+    });
+    const responseBody = await response.text();
+    if (!response.ok) {
+      console.error(`ORDS ${options.method || 'GET'} ${url} respondió HTTP ${response.status}: ${responseBody || 'sin cuerpo'}`);
+      throw new Error(`ORDS respondió HTTP ${response.status}: ${responseBody || 'sin detalle'}`);
+    }
+    if (!responseBody) return { ok: true };
+    try {
+      return JSON.parse(responseBody);
+    } catch (error) {
+      console.error(`ORDS ${options.method || 'GET'} ${url} devolvió JSON inválido: ${responseBody}`);
+      throw new Error(`ORDS devolvió una respuesta no válida: ${error.message}`);
+    }
+  } catch (error) {
+    console.error(`Error de comunicación con ORDS ${options.method || 'GET'} ${url}:`, error);
+    throw error;
+  }
+}
+
+function normalizeSummaryMetrics(payload) {
+  const source = payload?.metrics || payload || {};
+  return {
+    inventory: Number(source.inventory ?? source.total_stock ?? source.TOTAL_STOCK ?? 0),
+    lowStock: Number(source.lowStock ?? source.low_stock ?? source.LOW_STOCK ?? 0),
+    monthlySales: Number(source.monthlySales ?? source.monthly_sales ?? source.ventas_mes ?? source.VENTAS_MES ?? 0),
+    customers: Number(source.customers ?? source.total_clientes ?? source.TOTAL_CLIENTES ?? 0)
+  };
 }
 
 // Health Status
@@ -310,15 +430,12 @@ app.get('/api/dashboard', async (_req, res) => {
         getOrdsCollection(`${ordsBaseUrl}dashboard/`),
         getOrdsItems('ventas/consulta')
       ]);
-      const metricFields = ['inventory', 'lowStock', 'monthlySales', 'customers'];
-      if (!dashboard.metrics || metricFields.some(field => dashboard.metrics[field] === null || dashboard.metrics[field] === undefined || !Number.isFinite(Number(dashboard.metrics[field])))) {
-        throw new Error('ORDS /dashboard/ no devolvió todas las métricas esperadas');
-      }
+      const metrics = normalizeSummaryMetrics(dashboard);
       return res.json({
         mode: 'ords',
         inventory,
         sales,
-        metrics: dashboard.metrics
+        metrics
       });
     }
     const [inventory, sales, metrics] = await Promise.all([
@@ -350,8 +467,18 @@ app.get('/api/summary', requireRole(['Administrador', 'Ventas', 'Almacen']), asy
   }
   try {
     if (ordsInventoryUrl) {
-      const payload = await getOrdsCollection(`${ordsBaseUrl}dashboard/`);
-      return res.json({ mode: 'ords', metrics: payload.metrics });
+      try {
+        const payload = await getOrdsCollection(`${ordsBaseUrl}dashboard/`);
+        const metrics = normalizeSummaryMetrics(payload);
+        if (metrics.customers || metrics.inventory || metrics.monthlySales || metrics.lowStock) {
+          return res.json({ ok: true, mode: 'ords', metrics: { ...metrics, totalStock: metrics.inventory } });
+        }
+      } catch (error) {
+        console.error('ORDS /dashboard/ no disponible; calculando resumen desde colecciones:', error.message);
+      }
+      const aggregate = await aggregateOrdsSummary();
+      const { inventoryItems, sales, ...metrics } = aggregate;
+      return res.json({ ok: true, mode: 'ords', metrics, inventory: inventoryItems, sales });
     }
     const [metrics] = await query(`SELECT
       (SELECT NVL(SUM(STOCK), 0) FROM PRODUCTOS WHERE ACTIVO = 'S') AS "inventory",
@@ -359,7 +486,7 @@ app.get('/api/summary', requireRole(['Administrador', 'Ventas', 'Almacen']), asy
       (SELECT COUNT(*) FROM PRODUCTOS WHERE ACTIVO = 'S' AND STOCK BETWEEN 1 AND 3) AS "lowStock",
       (SELECT COUNT(ID_CLIENTE) FROM CLIENTES) AS "customers"
       FROM DUAL`);
-    return res.json({ mode: 'oracle', metrics });
+    return res.json({ ok: true, mode: 'oracle', metrics: { ...metrics, totalStock: metrics.inventory } });
   } catch (error) {
     return res.status(ordsInventoryUrl ? 502 : 500).json({ error: error.message });
   }

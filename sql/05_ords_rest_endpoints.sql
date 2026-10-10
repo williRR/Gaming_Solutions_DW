@@ -98,6 +98,7 @@ BEGIN
                        VALUES (:name, :phone, :email, :address)
                        RETURNING ID_CLIENTE INTO l_id_cliente;
 
+                       COMMIT;
                        :status := 201;
                        HTP.P(''{"id": '' || l_id_cliente ||
                              '', "message": "Cliente creado exitosamente"}'');
@@ -185,6 +186,7 @@ BEGIN
                          :status := 404;
                          HTP.P(''{"error": "Producto no encontrado"}'');
                        ELSE
+                         COMMIT;
                          HTP.P(''{"id": '' || :id ||
                                '', "message": "Producto actualizado"}'');
                        END IF;
@@ -208,6 +210,7 @@ BEGIN
                          :status := 404;
                          HTP.P(''{"error": "Producto no encontrado"}'');
                        ELSE
+                         COMMIT;
                          HTP.P(''{"id": '' || :id ||
                                '', "message": "Producto desactivado"}'');
                        END IF;
@@ -246,6 +249,7 @@ BEGIN
                          :status := 404;
                          HTP.P(''{"error": "Certificado no encontrado"}'');
                        ELSE
+                         COMMIT;
                          HTP.P(''{"productId": '' || :id ||
                                '', "message": "Certificado actualizado"}'');
                        END IF;
@@ -297,6 +301,7 @@ BEGIN
                          (l_id_compra, :productId, :quantity, :cost);
 
                        :status := 201;
+                       COMMIT;
                        HTP.P(''{"id": '' || l_id_compra ||
                              '', "total": '' || (:quantity * :cost) ||
                              '', "message": "Compra registrada y stock actualizado"}'');

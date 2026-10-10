@@ -18,6 +18,9 @@ const ROLE_ALIASES = new Map([
 let authConfig = {
   demoMode: false,
   query: null,
+  loginViaOrds: null,
+  adminUsername: process.env.ADMIN_USERNAME || '',
+  adminPassword: process.env.ADMIN_PASSWORD || '',
   demoUsers: [],
   secret: process.env.JWT_SECRET
 };
@@ -88,19 +91,31 @@ async function loginHandler(req, res) {
         return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
       }
     } else {
-      const rows = await authConfig.query(
-        `SELECT u.ID_USUARIO AS "id_usuario",
-                u.NOMBRE_COMPLETO AS "nombre",
-                u.CLAVE_HASH AS "passwordHash",
-                r.NOMBRE_ROL AS "rol"
-           FROM USUARIOS u
-           JOIN ROLES r ON r.ID_ROL = u.ID_ROL
-          WHERE LOWER(u.USERNAME) = LOWER(:username)
-            AND u.ACTIVO = 'S'`,
-        { username }
-      );
-      user = rows[0];
+      if (authConfig.loginViaOrds) {
+        user = await authConfig.loginViaOrds(username, password);
+      } else if (authConfig.query) {
+        const rows = await authConfig.query(
+          `SELECT u.ID_USUARIO AS "id_usuario",
+                  u.NOMBRE_COMPLETO AS "nombre",
+                  u.CLAVE_HASH AS "passwordHash",
+                  r.NOMBRE_ROL AS "rol"
+             FROM USUARIOS u
+             JOIN ROLES r ON r.ID_ROL = u.ID_ROL
+            WHERE LOWER(u.USERNAME) = LOWER(:username)
+              AND u.ACTIVO = 'S'`,
+          { username }
+        );
+        user = rows[0];
+      } else if (authConfig.adminUsername && authConfig.adminPassword &&
+                 username === authConfig.adminUsername && password === authConfig.adminPassword) {
+        user = { id_usuario: 1, nombre: 'Administrador', rol: 'Administrador' };
+      } else {
+        const error = new Error('No hay proveedor de autenticación configurado');
+        error.code = 'AUTH_PROVIDER_NOT_CONFIGURED';
+        throw error;
+      }
       if (!user || !(await verifyPassword(password, user.passwordHash))) {
+        if (user && !user.passwordHash && user.id_usuario) return res.json({ token: issueToken(user), user: { id_usuario: Number(user.id_usuario), nombre: user.nombre, rol: normalizeRole(user.rol) }, expiresIn: TOKEN_EXPIRATION });
         return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
       }
     }
@@ -113,11 +128,14 @@ async function loginHandler(req, res) {
     return res.json({ token: issueToken(safeUser), user: safeUser, expiresIn: TOKEN_EXPIRATION });
   } catch (error) {
     console.error('Error de autenticación:', error);
+    if (error.code === 'AUTH_PROVIDER_NOT_CONFIGURED') {
+      return res.status(500).json({ ok: false, code: error.code, error: error.message });
+    }
     if (error.code === 'NJS-503' || error.code === 'NJS-500' || error.code === 'NJS-510' || error.code === 'NJS-522' || error.code === 'AUTH_DB_UNAVAILABLE') {
       return res.status(503).json({
         ok: false,
-        code: 'AUTH_DB_UNAVAILABLE',
-        error: 'El servicio de autenticación no está disponible. Intenta nuevamente más tarde.'
+        code: error.code,
+        error: error.message
       });
     }
     return res.status(500).json({ error: 'No se pudo procesar el inicio de sesión' });

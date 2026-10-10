@@ -29,6 +29,45 @@ BEGIN
     p_source_type => ORDS.SOURCE_TYPE_PLSQL, p_source => 'BEGIN
       UPDATE PRODUCTOS SET NOMBRE=NVL(:nombre,NVL(:name,NOMBRE)),PRECIO_VENTA=NVL(:precio_venta,NVL(:price,PRECIO_VENTA)),PRECIO_COMPRA=NVL(:precio_compra,NVL(:cost,PRECIO_COMPRA)),STOCK=NVL(:stock,STOCK),IMAGEN_URL=NVL(:imagen_url,NVL(:imageUrl,IMAGEN_URL)),TIPO_PRODUCTO=NVL(:productType,TIPO_PRODUCTO),TIEMPO_GARANTIA_MESES=NVL(:tiempo_garantia_meses,NVL(:warrantyMonths,TIEMPO_GARANTIA_MESES)) WHERE ID_PRODUCTO=:id;
       IF SQL%ROWCOUNT=0 THEN :status:=404; HTP.P(''{"error":"Producto no encontrado"}''); ELSE COMMIT; HTP.P(''{"id":''||:id||'',"message":"Producto actualizado"}''); END IF; END;');
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'gaming', p_pattern => 'ventas/consulta/');
+  ORDS.DEFINE_HANDLER(p_module_name => 'gaming', p_pattern => 'ventas/consulta/', p_method => 'GET',
+    p_source_type => ORDS.SOURCE_TYPE_COLLECTION_FEED,
+    p_source => 'SELECT v.ID_VENTA "id", c.NOMBRE "customer",
+      TO_CHAR(v.FECHA_VENTA, ''YYYY-MM-DD'') "date", v.METODO_PAGO "payment",
+      v.TOTAL_VENTA "total", v.ESTADO_VENTA "status"
+      FROM VENTAS v JOIN CLIENTES c ON c.ID_CLIENTE = v.ID_CLIENTE
+      ORDER BY v.FECHA_VENTA DESC');
+  COMMIT;
+END;
+/
+
+-- Resumen operativo consumido por /api/summary y /api/dashboard.
+DECLARE
+  PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+  ORDS.DEFINE_TEMPLATE(p_module_name => 'gaming', p_pattern => 'dashboard/');
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'gaming',
+    p_pattern => 'dashboard/',
+    p_method => 'GET',
+    p_source_type => ORDS.SOURCE_TYPE_PLSQL,
+    p_source => 'DECLARE
+      l_clientes NUMBER;
+      l_stock NUMBER;
+      l_ventas NUMBER;
+    BEGIN
+      SELECT
+        (SELECT COUNT(*) FROM CLIENTES),
+        (SELECT NVL(SUM(STOCK), 0) FROM PRODUCTOS WHERE ACTIVO = ''S''),
+        (SELECT NVL(SUM(TOTAL_VENTA), 0) FROM VENTAS
+          WHERE FECHA_VENTA >= TRUNC(SYSDATE, ''MM''))
+      INTO l_clientes, l_stock, l_ventas
+      FROM DUAL;
+      HTP.P(''{"mode":"ords","metrics":{"inventory":'' || l_stock ||
+        '',''customers'':'' || l_clientes || '',''monthlySales'':'' ||
+        l_ventas || '',''lowStock'':0}}'');
+    END;'
+  );
   COMMIT;
 END;
 /
