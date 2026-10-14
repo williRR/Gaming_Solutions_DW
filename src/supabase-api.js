@@ -2,18 +2,38 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 
-const PRODUCT_COLUMNS = `id_producto, nombre, marca, modelo, tipo_hardware, tipo_producto, imagen_url,
-  precio_venta, precio_compra, stock, sku, descripcion, id_proveedor, tiempo_garantia_meses,
-  certificados_gs(codigo_certificado, hardware_original_pct, estado_estetico_pct,
-    rendimiento_termico_pct, meses_garantia, puntos_revisados)`;
+// PRODUCT_COLUMNS: usa el hint FK "certificados_gs!certificados_gs_id_producto_fkey"
+// para que PostgREST pueda resolver la relación sin ambigüedad y no lance
+// "Invalid path specified in request URL".
+const PRODUCT_COLUMNS = [
+  'id_producto',
+  'nombre',
+  'marca',
+  'modelo',
+  'tipo_hardware',
+  'tipo_producto',
+  'imagen_url',
+  'precio_venta',
+  'precio_compra',
+  'stock',
+  'sku',
+  'descripcion',
+  'id_proveedor',
+  'tiempo_garantia_meses',
+  'certificados_gs!certificados_gs_id_producto_fkey(codigo_certificado, hardware_original_pct, estado_estetico_pct, rendimiento_termico_pct, meses_garantia, puntos_revisados)'
+].join(', ');
+
 
 const CATEGORY_SLUG = { NEXT_GEN: 'consolas-next-gen', LAPTOP: 'laptops-gamer', RETRO: 'retro-restoration', ACCESORIO: 'accesorios' };
 
 function createSupabaseClient() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-  console.log("Conectando a Supabase URL:", url ? "URL presente" : "¡URL VACÍA!");
-  if (!url || !key) return null;
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+  if (!process.env.SUPABASE_URL || !key) return null;
+  // Solo el origen: rutas como /rest/v1/ en la URL provocan "Invalid path specified in request URL".
+  let url;
+  try { url = new URL(process.env.SUPABASE_URL.trim().replace(/^["']|["']$/g, '')).origin; }
+  catch { console.error('SUPABASE_URL no es una URL válida (ej. https://abcd1234.supabase.co)'); return null; }
+  console.log('Conectando a Supabase:', url);
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
@@ -392,7 +412,7 @@ function createSupabaseLogin(db) {
         username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
       return { id_usuario: 1, nombre: 'Administrador', rol: 'Administrador' };
     }
-    const rows = check(await db.from('usuarios').select('id_usuario, nombre_completo, clave_hash, roles(nombre_rol)')
+    const rows = check(await db.from('usuarios').select('id_usuario, nombre_completo, clave_hash, roles!usuarios_id_rol_fkey(nombre_rol)')
       .ilike('username', username.replace(/[%_\\]/g, '\\$&')).eq('activo', 'S').limit(1));
     const user = rows[0];
     if (!user || !user.clave_hash || !(await bcrypt.compare(password, user.clave_hash))) return null;
