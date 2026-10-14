@@ -17,6 +17,7 @@ const ROLE_ALIASES = new Map([
 
 let authConfig = {
   demoMode: false,
+  demoAuthMode: false,
   query: null,
   loginViaOrds: null,
   adminUsername: process.env.ADMIN_USERNAME || '',
@@ -85,7 +86,7 @@ async function loginHandler(req, res) {
 
   try {
     let user;
-    if (authConfig.demoMode) {
+    if (authConfig.demoAuthMode || authConfig.demoMode) {
       user = authConfig.demoUsers.find(item => item.username.toLowerCase() === username.toLowerCase());
       if (!user || !(await verifyPassword(password, user.passwordHash))) {
         return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });

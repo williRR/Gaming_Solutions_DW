@@ -15,17 +15,22 @@ const { createSalesRouter } = require('./routes/sales');
 const { createPurchasesRouter } = require('./routes/purchases');
 const { createMobileRouter } = require('./routes/mobile');
 const { loadDemoData, createDemoPersistence } = require('./demo-store');
+const { createSupabaseClient, createSupabaseRouter, createSupabaseLogin } = require('./supabase-api');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const apiVersion = '2026.09.28-apex-ords';
 const demoMode = process.env.DEMO_MODE === 'true';
+const demoAuthMode = process.env.AUTH_DEMO_MODE === 'true' || demoMode;
+// Supabase (PostgreSQL) tiene prioridad sobre ORDS/Oracle cuando SUPABASE_URL y la clave están definidas.
+const supabase = demoMode ? null : createSupabaseClient();
 // Configure either the full product collection URL or the ORDS module base URL.
 const configuredOrdsBaseUrl = process.env.ORDS_BASE_URL || '';
 const configuredInventoryUrl = process.env.ORDS_INVENTORY_URL || '';
-const ordsInventoryUrl = /\/(productos|consolas)\/?$/i.test(configuredInventoryUrl)
-  ? `${configuredInventoryUrl.replace(/\/+$/, '')}/`
-  : `${(configuredOrdsBaseUrl || configuredInventoryUrl).replace(/\/+$/, '')}/productos/`;
+const ordsInventoryUrl = !(configuredOrdsBaseUrl || configuredInventoryUrl) ? '' :
+  /\/(productos|consolas)\/?$/i.test(configuredInventoryUrl)
+    ? `${configuredInventoryUrl.replace(/\/+$/, '')}/`
+    : `${(configuredOrdsBaseUrl || configuredInventoryUrl).replace(/\/+$/, '')}/productos/`;
 // Used to build sibling ORDS resources such as POST /productos/.
 const ordsBaseUrl = (configuredOrdsBaseUrl || ordsInventoryUrl.replace(/(productos|consolas)\/?$/, '')).replace(/\/+$/, '') + '/';
 // Can be overridden if the ORDS WAF requires a different User-Agent.
@@ -121,8 +126,8 @@ function persistDemoData() {
   }
 }
 
-if (!demoMode && !ordsInventoryUrl && !hasOracleCredentials) {
-  console.error('CONFIGURACIÓN INVÁLIDA: DEMO_MODE=false requiere ORDS_INVENTORY_URL o credenciales Oracle. No se usará almacenamiento en memoria.');
+if (!demoMode && !supabase && !ordsInventoryUrl && !hasOracleCredentials) {
+  console.error('CONFIGURACIÓN INVÁLIDA: DEMO_MODE=false requiere SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY (o ORDS/Oracle). No se usará almacenamiento en memoria.');
 }
 
 async function loginViaOrds(username, password) {
@@ -154,8 +159,10 @@ async function loginViaOrds(username, password) {
 
 configureAuth({
   demoMode,
+  demoAuthMode,
   query: poolPromise ? query : null,
-  loginViaOrds: !poolPromise && process.env.ORDS_AUTH_URL ? loginViaOrds : null,
+  loginViaOrds: supabase ? createSupabaseLogin(supabase)
+    : !poolPromise && process.env.ORDS_AUTH_URL ? loginViaOrds : null,
   demoUsers
 });
 
@@ -209,6 +216,8 @@ app.use('/api', (req, res, next) => {
   return authenticateToken(req, res, next);
 });
 app.get('/api/auth/me', meHandler);
+// Con Supabase activo este router atiende todas las rutas de datos con el mismo contrato JSON.
+if (supabase) app.use('/api', createSupabaseRouter(supabase, { requireRole }));
 app.use('/api/sales', createSalesRouter({
   demoMode,
   demoSales,
@@ -807,7 +816,7 @@ app.put('/api/products/:id', requireRole(['Administrador', 'Almacen']), async (r
   }
 });
 
-// DEACTIVATE product: DELETE /api/inventory/:id proxies ORDS POST /productos/:id/desactivar/.
+// DEACTIVATE product: DELETE /api/inventory/:id proxies ORDS DELETE /productos/:id/.
 app.delete('/api/inventory/:id', requireRole(['Administrador']), async (req, res) => {
   const productId = Number(req.params.id);
   if (!Number.isInteger(productId) || productId <= 0) return res.status(400).json({ error: 'ID de producto inválido' });
@@ -819,7 +828,12 @@ app.delete('/api/inventory/:id', requireRole(['Administrador']), async (req, res
     return res.json({ ok: true });
   }
   if (ordsInventoryUrl && !poolPromise) {
-    try { return res.json(await postOrdsResource(`productos/${productId}/desactivar`, {}, req.user)); }
+    try {
+      return res.json(await requestOrds(`${ordsBaseUrl}productos/${productId}/`, {
+        method: 'DELETE',
+        body: JSON.stringify({})
+      }));
+    }
     catch (error) { return res.status(502).json({ error: error.message }); }
   }
   return res.status(501).json({ error: 'La baja lógica requiere ORDS.' });
@@ -1002,5 +1016,5 @@ Object.entries(pageRoutes).forEach(([route, file]) => {
 
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
 
-const runtimeMode = demoMode ? 'demo' : ordsInventoryUrl ? 'ORDS' : hasOracleCredentials ? 'Oracle' : 'sin base de datos';
+const runtimeMode = demoMode ? 'demo' : supabase ? 'Supabase' : ordsInventoryUrl ? 'ORDS' : hasOracleCredentials ? 'Oracle' : 'sin base de datos';
 app.listen(port, () => console.log(`Gaming Solutions listo en http://localhost:${port} (${runtimeMode})`));
