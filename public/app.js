@@ -28,9 +28,9 @@ function renderInventory(items) {
       <td>${getCategoryLabel(item.type)}</td>
       <td>
         <div class="inspection-pills">
-          <span class="pill hw" title="Hardware Original">HW ${item.hwPct || 100}%</span>
-          <span class="pill aesthetic" title="Estado Estético">Est. ${item.aestheticPct || 95}%</span>
-          <span class="pill thermal" title="Rendimiento Térmico">Térmico ${item.thermalPct || 98}%</span>
+          <span class="pill hw" title="Hardware Original">HW ${item.hwPct || 100} %</span>
+          <span class="pill aesthetic" title="Estado Estético">Est. ${item.aestheticPct || 95} %</span>
+          <span class="pill thermal" title="Rendimiento Térmico">Térmico ${item.thermalPct || 98} %</span>
         </div>
       </td>
       <td><strong>${money.format(Number(item.price) || 0)}</strong></td>

@@ -2,27 +2,33 @@
   const tabs = [
     { id: 'dashboard', path: '/dashboard', label: 'Resumen', icon: '▦', permission: 'dashboard' },
     { id: 'inventory', path: '/inventario', label: 'Inventario', icon: '◈', permission: 'inventoryRead' },
+    { id: 'catalog', path: '/catalogo', label: 'Catálogo', icon: '▣', permission: 'inventoryRead' },
+    { id: 'clients', path: '/clientes', label: 'Clientes', icon: '◎', permission: 'clients' },
     { id: 'sales', path: '/ventas', label: 'Ventas', icon: '↗', permission: 'sales' },
     { id: 'purchases', path: '/compras', label: 'Compras', icon: '↙', permission: 'purchases' },
     { id: 'audit', path: '/auditoria', label: 'Auditoría', icon: '◌', permission: 'audit' }
   ];
 
   function isNative() {
-    return Boolean(window.Capacitor?.isNativePlatform?.() || window.Capacitor?.getPlatform?.() !== 'web');
+    const capacitor = window.Capacitor;
+    if (!capacitor) return false;
+    if (typeof capacitor.isNativePlatform === 'function') return capacitor.isNativePlatform();
+    const platform = capacitor.getPlatform?.();
+    return Boolean(platform && platform !== 'web');
   }
 
   function allowed(tab) {
     const role = window.GSAuth?.getUser()?.rol;
     const permissions = {
-      Administrador: ['dashboard', 'inventoryRead', 'sales', 'purchases', 'audit'],
-      Ventas: ['dashboard', 'inventoryRead', 'sales'],
+      Administrador: ['dashboard', 'inventoryRead', 'clients', 'sales', 'purchases', 'audit'],
+      Ventas: ['dashboard', 'inventoryRead', 'clients', 'sales'],
       Almacen: ['dashboard', 'inventoryRead', 'purchases']
     };
     return (permissions[role] || []).includes(tab.permission);
   }
 
   function render() {
-    if (!isNative() && window.innerWidth > 900) return;
+    if (!isNative() && !window.matchMedia('(max-width: 900px)').matches) return;
     let nav = document.querySelector('#mobileBottomNav');
     if (!nav) {
       nav = document.createElement('nav');

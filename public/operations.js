@@ -140,7 +140,7 @@ function renderGuarantee() {
   const documentId = customer.nit || customer.dpi || 'Sin documento';
   const inspection = String(item.productType || item.type).toUpperCase() === 'NUEVO'
     ? '<p class="guarantee-stamp">PRODUCTO NUEVO / GARANTÍA DE FÁBRICA</p>'
-    : `<h4>Inspección técnica</h4><ul><li>HW: ${item.hwPct || 100}%</li><li>Estética: ${item.aestheticPct || 95}%</li><li>Térmico: ${item.thermalPct || 98}%</li></ul>`;
+    : `<h4>Inspección técnica</h4><ul><li>HW: ${item.hwPct || 100} %</li><li>Estética: ${item.aestheticPct || 95} %</li><li>Térmico: ${item.thermalPct || 98} %</li></ul>`;
   document.querySelector('#saleSummary').innerHTML = `<div class="guarantee-preview"><h3>Gaming Solutions - Certificado de Garantía</h3><p><strong>Venta:</strong> #GS-${escapeHtml(lastSale.id)} · <strong>Fecha:</strong> ${new Date().toLocaleDateString('es-GT')}</p><p><strong>Cliente:</strong> ${escapeHtml(customer.name)} · <strong>NIT/DPI:</strong> ${escapeHtml(documentId)}</p><p><strong>Producto:</strong> ${escapeHtml(item.name)} × ${lastSale.quantity}</p><p><strong>Garantía:</strong> ${Number(item.warrantyMonths || 12)} meses</p>${inspection}</div>`;
   document.querySelector('[data-sale-print]').textContent = `🖨️ Imprimir Garantía (#GS-${lastSale.id})`;
 }

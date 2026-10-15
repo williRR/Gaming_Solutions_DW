@@ -4,9 +4,9 @@
     const form = document.querySelector('[data-form="certificate-update"]');
     if (!form) return;
     const values = [
-      ['Hardware original', form.elements.hwPct.value + '%'],
-      ['Estado estético', form.elements.aestheticPct.value + '%'],
-      ['Rendimiento térmico', form.elements.thermalPct.value + '%'],
+      ['Hardware original', form.elements.hwPct.value + ' %'],
+      ['Estado estético', form.elements.aestheticPct.value + ' %'],
+      ['Rendimiento térmico', form.elements.thermalPct.value + ' %'],
       ['Garantía', form.elements.warrantyMonths.value + ' meses'],
       ['Puntos revisados', form.elements.pointsReviewed.value || 'N/D'],
       ['Técnico responsable', form.elements.technician.value || 'N/D'],
