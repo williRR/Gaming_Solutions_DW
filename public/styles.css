@@ -229,8 +229,7 @@ footer{display:flex;justify-content:space-between;margin-top:35px;color:#a2a8a7;
 }
 @media(max-width:900px){
   body{display:block;padding-bottom:72px}
-  main{margin-left:0;width:100%;padding:18px 14px 25px}
-  body[data-page="dashboard"] main{padding-top:calc(36px + env(safe-area-inset-top, 0px))}
+  main{margin-left:0;width:100%;padding:calc(36px + env(safe-area-inset-top, 0px)) 14px 25px}
   .sidebar{display:none}
   header h1{font-size:21px}
   .hero{margin-top:20px;padding:24px 20px;display:block;min-height:0}
