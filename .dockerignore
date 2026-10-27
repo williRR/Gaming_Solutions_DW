@@ -1,0 +1,11 @@
+.git
+.github
+node_modules
+android
+data
+.env
+.env.*
+!.env.docker.example
+*.md
+*.http
+npm-debug.log*

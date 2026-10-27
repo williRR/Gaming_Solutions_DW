@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/middleware/auth.js && node --check src/supabase-api.js"
+    "check": "node --check src/server.js && node --check src/middleware/auth.js && node --check src/supabase-api.js",
+    "docker:smoke": "node scripts/smoke.js",
+    "docker:env": "node scripts/gen-env.js --write",
+    "docker:reset": "docker compose --env-file .env.docker down -v && node scripts/gen-env.js --write --force"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

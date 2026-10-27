@@ -1,5 +1,7 @@
 node_modules/
 .env
+.env.docker
+backups/
 npm-debug.log*
 data/demo_db.json
 data/demo_db.json.tmp

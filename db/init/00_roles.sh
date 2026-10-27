@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+  CREATE ROLE anon          NOLOGIN NOINHERIT;
+  CREATE ROLE authenticated NOLOGIN NOINHERIT;
+  CREATE ROLE service_role  NOLOGIN NOINHERIT BYPASSRLS;
+  CREATE ROLE authenticator LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+         PASSWORD '${AUTHENTICATOR_PASSWORD}';
+  GRANT anon, authenticated, service_role TO authenticator;
+EOSQL

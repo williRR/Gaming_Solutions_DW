@@ -68,12 +68,13 @@ INSERT INTO productos (id_categoria, id_proveedor, sku, nombre, marca, modelo, t
   120.00,
   7,
   'Consola clásica totalmente restaurada a mano, capacitores reemplazados (recap) y probada en banco de trabajo.',
-  6
-);
+  24
+)
+ON CONFLICT (sku) DO NOTHING;
 
 -- 4. USUARIO ADMINISTRADOR DE PRUEBA
--- Contraseña generada por bcrypt para la clave: 'Admin123*'
--- Puedes iniciar sesión en el panel usando el usuario: 'admin' y clave: 'Admin123*'
+-- La clave real se fija al inicializar Docker (db/init/25_admin_user.sh) con ADMIN_INITIAL_PASSWORD.
+-- Este hash es solo un marcador y no corresponde a ninguna clave conocida.
 INSERT INTO usuarios (id_rol, username, email, nombre_completo, clave_hash) VALUES
 (
   (SELECT id_rol FROM roles WHERE nombre_rol = 'Administrador'),

@@ -1,0 +1,95 @@
+name: gaming-solutions
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: db/Dockerfile
+    image: gs-db:local
+    container_name: gs-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?requerido}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?requerido}
+      POSTGRES_DB: ${POSTGRES_DB:?requerido}
+      AUTHENTICATOR_PASSWORD: ${AUTHENTICATOR_PASSWORD:?requerido}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?requerido}
+    volumes:
+      - gs_pgdata:/var/lib/postgresql/data
+    networks: [backend_net]
+    healthcheck:
+      # -h 127.0.0.1 evita un falso "healthy" durante el servidor temporal de init (solo escucha por socket)
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: gs-postgrest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${AUTHENTICATOR_PASSWORD}@db:5432/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:?requerido}
+      PGRST_SERVER_PORT: '3000'
+    networks: [backend_net]
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: gs-api:local
+    container_name: gs-api
+    restart: unless-stopped
+    depends_on:
+      postgrest:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DEMO_MODE: 'false'
+      AUTH_DEMO_MODE: ${AUTH_DEMO_MODE:-false}
+      JWT_SECRET: ${JWT_SECRET:?requerido}
+      SUPABASE_URL: http://postgrest:3000
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:?requerido}
+      POSTGREST_LOCAL: 'true'
+    networks: [backend_net, frontend_net]
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO /dev/null http://127.0.0.1:3000/api/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: gs-web:local
+    container_name: gs-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    networks: [frontend_net]
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO /dev/null http://127.0.0.1/ || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  frontend_net:
+  backend_net:
+    internal: true   # sin salida a Internet ni acceso desde el host
+
+volumes:
+  gs_pgdata:

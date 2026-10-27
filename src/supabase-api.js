@@ -34,7 +34,13 @@ function createSupabaseClient() {
   try { url = new URL(process.env.SUPABASE_URL.trim().replace(/^["']|["']$/g, '')).origin; }
   catch { console.error('SUPABASE_URL no es una URL válida (ej. https://abcd1234.supabase.co)'); return null; }
   console.log('Conectando a Supabase:', url);
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  // Docker/local: PostgREST no sirve bajo /rest/v1, pero supabase-js lo añade siempre.
+  const localRest = process.env.POSTGREST_LOCAL === 'true';
+  const stripRestPrefix = (input, init) => fetch(String(input).replace('/rest/v1/', '/'), init);
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    ...(localRest ? { global: { fetch: stripRestPrefix } } : {})
+  });
 }
 
 function check({ data, error }) {
